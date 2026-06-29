@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+const db = supabase as unknown as { from: (t: string) => any };
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -20,12 +21,9 @@ import { AssetForm } from "./AssetForm";
 import { LabelSheet } from "./LabelSheet";
 
 async function fetchAssets(): Promise<Asset[]> {
-  const { data, error } = await supabase
-    .from("assets" as never)
-    .select("*")
-    .order("created_at", { ascending: false });
+  const { data, error } = await db.from("assets").select("*").order("created_at", { ascending: false });
   if (error) throw error;
-  return (data ?? []) as unknown as Asset[];
+  return (data ?? []) as Asset[];
 }
 
 export function AssetsPage() {
@@ -50,10 +48,10 @@ export function AssetsPage() {
   const upsertMut = useMutation({
     mutationFn: async (payload: Record<string, unknown> & { id?: string }) => {
       if (editing) {
-        const { error } = await supabase.from("assets" as never).update(payload).eq("id", editing.id);
+        const { error } = await db.from("assets").update(payload).eq("id", editing.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("assets" as never).insert(payload);
+        const { error } = await db.from("assets").insert(payload);
         if (error) throw error;
       }
     },
@@ -68,7 +66,7 @@ export function AssetsPage() {
 
   const deleteMut = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("assets" as never).delete().eq("id", id);
+      const { error } = await db.from("assets").delete().eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
