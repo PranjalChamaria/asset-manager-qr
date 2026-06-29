@@ -14,7 +14,72 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      assets: {
+        Row: {
+          asset_code: string
+          asset_name: string
+          brand: string | null
+          category: string | null
+          company: string | null
+          created_at: string
+          department: string | null
+          id: string
+          location: string | null
+          model_number: string | null
+          purchase_date: string | null
+          purchase_price: number | null
+          remarks: string | null
+          serial_number: string | null
+          status: string
+          updated_at: string
+          vendor: string | null
+          warranty_expiry: string | null
+          warranty_months: number | null
+        }
+        Insert: {
+          asset_code: string
+          asset_name: string
+          brand?: string | null
+          category?: string | null
+          company?: string | null
+          created_at?: string
+          department?: string | null
+          id?: string
+          location?: string | null
+          model_number?: string | null
+          purchase_date?: string | null
+          purchase_price?: number | null
+          remarks?: string | null
+          serial_number?: string | null
+          status?: string
+          updated_at?: string
+          vendor?: string | null
+          warranty_expiry?: string | null
+          warranty_months?: number | null
+        }
+        Update: {
+          asset_code?: string
+          asset_name?: string
+          brand?: string | null
+          category?: string | null
+          company?: string | null
+          created_at?: string
+          department?: string | null
+          id?: string
+          location?: string | null
+          model_number?: string | null
+          purchase_date?: string | null
+          purchase_price?: number | null
+          remarks?: string | null
+          serial_number?: string | null
+          status?: string
+          updated_at?: string
+          vendor?: string | null
+          warranty_expiry?: string | null
+          warranty_months?: number | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
