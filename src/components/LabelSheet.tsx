@@ -11,36 +11,81 @@ function Label({ asset, url }: { asset: Asset; url: string }) {
 
   useEffect(() => {
     if (qrRef.current) {
-      QRCode.toCanvas(qrRef.current, url, { width: 180, margin: 1 });
+      // 22mm @ 203dpi ≈ 176px, quiet zone 4 modules, EC level M
+      QRCode.toCanvas(qrRef.current, url, {
+        width: 176,
+        margin: 4,
+        errorCorrectionLevel: "M",
+      });
     }
     if (barRef.current) {
       JsBarcode(barRef.current, asset.asset_code, {
         format: "CODE128",
         displayValue: true,
-        fontSize: 12,
-        height: 40,
+        fontSize: 10,
+        height: 32, // ~9mm visual; container clips to 9mm
         margin: 0,
+        width: 1.4,
       });
     }
   }, [url, asset.asset_code]);
 
   return (
-    <div className="label-card border-2 border-foreground rounded-md p-3 bg-white text-black w-[280px]">
-      <div className="font-bold text-sm border-b border-foreground pb-1 mb-2 truncate">
+    <div
+      className="label-card bg-white text-black flex flex-col overflow-hidden"
+      style={{
+        width: "50.8mm",
+        height: "38.1mm",
+        padding: "2mm",
+        boxSizing: "border-box",
+        fontFamily: "Arial, sans-serif",
+        border: "1px dashed #999",
+      }}
+    >
+      {/* Company name: 4mm */}
+      <div
+        style={{ height: "4mm", lineHeight: "4mm", fontSize: "2.8mm", fontWeight: 700 }}
+        className="truncate text-center"
+      >
         {asset.company || "Asset"}
       </div>
-      <div className="flex gap-2 items-center">
-        <canvas ref={qrRef} className="shrink-0" />
-        <div className="border-l border-foreground pl-2 flex-1 min-w-0">
-          <div className="font-bold text-base truncate">{asset.asset_name}</div>
-          <div className="text-xs font-semibold text-muted-foreground tracking-wider">
+      <div style={{ height: "1px", background: "#000" }} />
+      {/* QR + text: 22mm */}
+      <div style={{ height: "22mm" }} className="flex items-center gap-[1.5mm]">
+        <canvas
+          ref={qrRef}
+          className="shrink-0"
+          style={{ width: "22mm", height: "22mm" }}
+        />
+        <div className="flex-1 min-w-0">
+          <div style={{ fontSize: "2.6mm", fontWeight: 700, lineHeight: 1.15 }} className="truncate">
+            {asset.asset_name}
+          </div>
+          <div style={{ fontSize: "2mm", lineHeight: 1.2 }} className="truncate font-mono">
             {asset.asset_code}
           </div>
+          {asset.location && (
+            <div style={{ fontSize: "1.8mm", lineHeight: 1.2 }} className="truncate">
+              {asset.location}
+            </div>
+          )}
         </div>
       </div>
-      <div className="mt-2 border-t border-foreground pt-2 flex flex-col items-center">
-        <svg ref={barRef} className="w-full" />
-        <div className="text-[10px] font-bold tracking-widest mt-1">SCAN FOR COMPLETE DETAILS</div>
+      <div style={{ height: "1px", background: "#000" }} />
+      {/* Barcode: 9mm */}
+      <div style={{ height: "9mm" }} className="flex items-center justify-center overflow-hidden">
+        <svg
+          ref={barRef}
+          style={{ width: "44mm", height: "9mm", display: "block" }}
+          preserveAspectRatio="none"
+        />
+      </div>
+      {/* Bottom text: 3mm */}
+      <div
+        style={{ height: "3mm", lineHeight: "3mm", fontSize: "1.8mm", letterSpacing: "0.05em" }}
+        className="text-center font-bold"
+      >
+        SCAN FOR DETAILS
       </div>
     </div>
   );
@@ -63,10 +108,12 @@ export function LabelSheet({ asset }: { asset: Asset }) {
         <Label asset={asset} url={url} />
       </div>
       <style>{`
+        @page { margin: 5mm; }
         @media print {
           body * { visibility: hidden; }
           .print-area, .print-area * { visibility: visible; }
-          .print-area { position: absolute; left: 0; top: 0; background: white !important; padding: 20px; gap: 20px; }
+          .print-area { position: absolute; left: 0; top: 0; background: white !important; padding: 0 !important; gap: 4mm !important; }
+          .label-card { border: none !important; }
         }
       `}</style>
     </div>
