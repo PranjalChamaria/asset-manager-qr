@@ -1,0 +1,229 @@
+import { useState, useMemo } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Plus, Pencil, Trash2, QrCode, Package, Search } from "lucide-react";
+import { toast } from "sonner";
+import type { Asset } from "@/lib/asset-types";
+import { daysUntil } from "@/lib/asset-types";
+import { AssetForm } from "./AssetForm";
+import { LabelSheet } from "./LabelSheet";
+
+async function fetchAssets(): Promise<Asset[]> {
+  const { data, error } = await supabase
+    .from("assets" as never)
+    .select("*")
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as unknown as Asset[];
+}
+
+export function AssetsPage() {
+  const qc = useQueryClient();
+  const { data: assets = [], isLoading } = useQuery({ queryKey: ["assets"], queryFn: fetchAssets });
+
+  const [search, setSearch] = useState("");
+  const [formOpen, setFormOpen] = useState(false);
+  const [editing, setEditing] = useState<Asset | null>(null);
+  const [labelAsset, setLabelAsset] = useState<Asset | null>(null);
+  const [deleteAsset, setDeleteAsset] = useState<Asset | null>(null);
+
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase().trim();
+    if (!q) return assets;
+    return assets.filter((a) =>
+      [a.asset_code, a.asset_name, a.category, a.brand, a.serial_number, a.vendor, a.department, a.location]
+        .some((v) => v?.toString().toLowerCase().includes(q))
+    );
+  }, [assets, search]);
+
+  const upsertMut = useMutation({
+    mutationFn: async (payload: Record<string, unknown> & { id?: string }) => {
+      if (editing) {
+        const { error } = await supabase.from("assets" as never).update(payload).eq("id", editing.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("assets" as never).insert(payload);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["assets"] });
+      setFormOpen(false);
+      setEditing(null);
+      toast.success(editing ? "Asset updated" : "Asset added");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const deleteMut = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("assets" as never).delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["assets"] });
+      setDeleteAsset(null);
+      toast.success("Asset deleted");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return (
+    <div className="min-h-screen bg-background">
+      <header className="border-b bg-card">
+        <div className="container mx-auto px-6 py-5 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="size-10 rounded-lg bg-primary text-primary-foreground grid place-items-center">
+              <Package className="size-5" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold tracking-tight">Asset Command</h1>
+              <p className="text-xs text-muted-foreground">Unit readiness control</p>
+            </div>
+          </div>
+          <Button onClick={() => { setEditing(null); setFormOpen(true); }}>
+            <Plus className="size-4 mr-1.5" /> Add Asset
+          </Button>
+        </div>
+      </header>
+
+      <main className="container mx-auto px-6 py-6 space-y-4">
+        <div className="flex items-center gap-3">
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by code, name, brand, serial…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+          <div className="text-sm text-muted-foreground ml-auto">
+            {filtered.length} of {assets.length} assets
+          </div>
+        </div>
+
+        <div className="border rounded-lg bg-card overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Asset Code</TableHead>
+                <TableHead>Name</TableHead>
+                <TableHead>Category</TableHead>
+                <TableHead>Brand</TableHead>
+                <TableHead>Serial</TableHead>
+                <TableHead>Vendor</TableHead>
+                <TableHead>Department</TableHead>
+                <TableHead>Location</TableHead>
+                <TableHead>Warranty</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
+                <TableRow><TableCell colSpan={11} className="text-center py-10 text-muted-foreground">Loading…</TableCell></TableRow>
+              ) : filtered.length === 0 ? (
+                <TableRow><TableCell colSpan={11} className="text-center py-10 text-muted-foreground">
+                  No assets yet. Click "Add Asset" to create your first record.
+                </TableCell></TableRow>
+              ) : filtered.map((a) => {
+                const days = daysUntil(a.warranty_expiry);
+                return (
+                  <TableRow key={a.id} className="cursor-pointer" onClick={() => setLabelAsset(a)}>
+                    <TableCell className="font-mono text-xs">{a.asset_code}</TableCell>
+                    <TableCell className="font-medium">{a.asset_name}</TableCell>
+                    <TableCell>{a.category}</TableCell>
+                    <TableCell>{a.brand}</TableCell>
+                    <TableCell className="font-mono text-xs">{a.serial_number}</TableCell>
+                    <TableCell>{a.vendor}</TableCell>
+                    <TableCell>{a.department}</TableCell>
+                    <TableCell>{a.location}</TableCell>
+                    <TableCell>
+                      {a.warranty_expiry ? (
+                        <span className={days !== null && days < 0 ? "text-destructive" : days !== null && days < 30 ? "text-amber-600" : ""}>
+                          {a.warranty_expiry} {days !== null && <span className="text-xs">({days}d)</span>}
+                        </span>
+                      ) : "—"}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={a.status === "Active" ? "default" : "secondary"}>{a.status}</Badge>
+                    </TableCell>
+                    <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex justify-end gap-1">
+                        <Button size="icon" variant="ghost" onClick={() => setLabelAsset(a)} title="QR & Barcode">
+                          <QrCode className="size-4" />
+                        </Button>
+                        <Button size="icon" variant="ghost" onClick={() => { setEditing(a); setFormOpen(true); }} title="Edit">
+                          <Pencil className="size-4" />
+                        </Button>
+                        <Button size="icon" variant="ghost" onClick={() => setDeleteAsset(a)} title="Delete">
+                          <Trash2 className="size-4 text-destructive" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
+      </main>
+
+      <Dialog open={formOpen} onOpenChange={(o) => { setFormOpen(o); if (!o) setEditing(null); }}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{editing ? "Edit Asset" : "Add New Asset"}</DialogTitle>
+            <DialogDescription>
+              {editing ? `Editing ${editing.asset_code}` : "Asset code will be generated automatically."}
+            </DialogDescription>
+          </DialogHeader>
+          <AssetForm
+            asset={editing}
+            submitting={upsertMut.isPending}
+            onSubmit={(d) => upsertMut.mutate(d)}
+            onCancel={() => { setFormOpen(false); setEditing(null); }}
+          />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!labelAsset} onOpenChange={(o) => !o && setLabelAsset(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Asset Label — {labelAsset?.asset_code}</DialogTitle>
+            <DialogDescription>
+              Two identical labels for printing & cutting. Scan to view full asset details.
+            </DialogDescription>
+          </DialogHeader>
+          {labelAsset && <LabelSheet asset={labelAsset} />}
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={!!deleteAsset} onOpenChange={(o) => !o && setDeleteAsset(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this asset?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteAsset?.asset_code} — {deleteAsset?.asset_name}. This action can't be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => deleteAsset && deleteMut.mutate(deleteAsset.id)}>Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}
