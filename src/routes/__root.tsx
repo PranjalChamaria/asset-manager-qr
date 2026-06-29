@@ -78,14 +78,18 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
+      { title: "ASSET MANAGER" },
+      { name: "description", content: "Asset Keeper Pro is a web application for logging, managing, and tracking all your company's assets." },
       { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { property: "og:title", content: "ASSET MANAGER" },
+      { property: "og:description", content: "Asset Keeper Pro is a web application for logging, managing, and tracking all your company's assets." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:site", content: "@Lovable" },
+      { name: "twitter:title", content: "ASSET MANAGER" },
+      { name: "twitter:description", content: "Asset Keeper Pro is a web application for logging, managing, and tracking all your company's assets." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/5a992525-d62f-4f62-8ca9-c4477f9c3a53/id-preview-366283f1--391d56eb-8576-4cce-8e1e-8ffc128e61f9.lovable.app-1782741476945.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/5a992525-d62f-4f62-8ca9-c4477f9c3a53/id-preview-366283f1--391d56eb-8576-4cce-8e1e-8ffc128e61f9.lovable.app-1782741476945.png" },
     ],
     links: [
       {
