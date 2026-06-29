@@ -11,14 +11,14 @@ function Label({ asset, url }: { asset: Asset; url: string }) {
 
   useEffect(() => {
     if (qrRef.current) {
-      QRCode.toCanvas(qrRef.current, url, { width: 180, margin: 1 });
+      QRCode.toCanvas(qrRef.current, url, { width: 88, margin: 1 });
     }
     if (barRef.current) {
       JsBarcode(barRef.current, asset.asset_code, {
         format: "CODE128",
         displayValue: true,
-        fontSize: 12,
-        height: 40,
+        fontSize: 8,
+        height: 24,
         margin: 0,
       });
     }
