@@ -35,6 +35,31 @@ export function AssetsPage() {
   const [editing, setEditing] = useState<Asset | null>(null);
   const [labelAsset, setLabelAsset] = useState<Asset | null>(null);
   const [deleteAsset, setDeleteAsset] = useState<Asset | null>(null);
+  const [unlocked, setUnlocked] = useState(false);
+  const [pwOpen, setPwOpen] = useState(false);
+  const [pwInput, setPwInput] = useState("");
+  const [pendingAction, setPendingAction] = useState<null | (() => void)>(null);
+
+  const ADMIN_PW = "admin123";
+
+  const requireAuth = (action: () => void) => {
+    if (unlocked) { action(); return; }
+    setPendingAction(() => action);
+    setPwInput("");
+    setPwOpen(true);
+  };
+
+  const submitPw = () => {
+    if (pwInput === ADMIN_PW) {
+      setUnlocked(true);
+      setPwOpen(false);
+      const a = pendingAction;
+      setPendingAction(null);
+      if (a) a();
+    } else {
+      toast.error("Incorrect password");
+    }
+  };
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim();
@@ -163,10 +188,10 @@ export function AssetsPage() {
                         <Button size="icon" variant="ghost" onClick={() => setLabelAsset(a)} title="QR & Barcode">
                           <QrCode className="size-4" />
                         </Button>
-                        <Button size="icon" variant="ghost" onClick={() => { setEditing(a); setFormOpen(true); }} title="Edit">
+                        <Button size="icon" variant="ghost" onClick={() => requireAuth(() => { setEditing(a); setFormOpen(true); })} title="Edit">
                           <Pencil className="size-4" />
                         </Button>
-                        <Button size="icon" variant="ghost" onClick={() => setDeleteAsset(a)} title="Delete">
+                        <Button size="icon" variant="ghost" onClick={() => requireAuth(() => setDeleteAsset(a))} title="Delete">
                           <Trash2 className="size-4 text-destructive" />
                         </Button>
                       </div>
@@ -222,6 +247,27 @@ export function AssetsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={pwOpen} onOpenChange={(o) => { setPwOpen(o); if (!o) { setPendingAction(null); setPwInput(""); } }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Admin password required</DialogTitle>
+            <DialogDescription>Enter the admin password to edit or delete records.</DialogDescription>
+          </DialogHeader>
+          <Input
+            type="password"
+            autoFocus
+            value={pwInput}
+            onChange={(e) => setPwInput(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") submitPw(); }}
+            placeholder="Password"
+          />
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" onClick={() => setPwOpen(false)}>Cancel</Button>
+            <Button onClick={submitPw}>Unlock</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
