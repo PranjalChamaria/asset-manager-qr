@@ -201,7 +201,7 @@ export function AssetsPage() {
           <DialogHeader>
             <DialogTitle>Asset Label — {labelAsset?.asset_code}</DialogTitle>
             <DialogDescription>
-              Two identical labels for printing & cutting. Scan to view full asset details.
+              {"\n"}
             </DialogDescription>
           </DialogHeader>
           {labelAsset && <LabelSheet asset={labelAsset} />}
