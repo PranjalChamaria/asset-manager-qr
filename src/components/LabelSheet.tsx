@@ -11,29 +11,29 @@ function Label({ asset, url }: { asset: Asset; url: string }) {
 
   useEffect(() => {
     if (qrRef.current) {
-      QRCode.toCanvas(qrRef.current, url, { width: 88, margin: 1 });
+      QRCode.toCanvas(qrRef.current, url, { width: 72, margin: 1 });
     }
     if (barRef.current) {
       JsBarcode(barRef.current, asset.asset_code, {
         format: "CODE128",
         displayValue: true,
-        fontSize: 8,
-        height: 24,
+        fontSize: 7,
+        height: 20,
         margin: 0,
       });
     }
   }, [url, asset.asset_code]);
 
   return (
-    <div className="label-card border-2 border-black rounded-[4px] p-1.5 bg-white text-black w-[2in] h-[1.5in] flex flex-col overflow-hidden">
-      <div className="font-bold text-[10px] border-b border-black pb-0.5 mb-1 truncate leading-tight">
+    <div className="label-card border-2 border-black rounded-[4px] p-1 bg-white text-black w-[2in] h-[1.5in] flex flex-col overflow-hidden">
+      <div className="font-bold text-[9px] border-b border-black pb-0.5 mb-1 truncate leading-tight">
         {asset.company || "Asset"}
       </div>
-      <div className="flex gap-1.5 items-start flex-1 min-h-0">
+      <div className="flex gap-1.5 items-start min-h-0">
         <canvas ref={qrRef} className="shrink-0" />
         <div className="border-l border-black pl-1.5 flex-1 min-w-0 flex flex-col justify-center">
-          <div className="font-bold text-[11px] truncate leading-tight">{asset.asset_name}</div>
-          <div className="text-[9px] font-semibold text-gray-600 tracking-wider">
+          <div className="font-bold text-[10px] truncate leading-tight">{asset.asset_name}</div>
+          <div className="text-[8px] font-semibold text-gray-700 tracking-wide break-words leading-tight">
             {asset.asset_code}
           </div>
         </div>
