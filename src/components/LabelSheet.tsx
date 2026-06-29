@@ -25,22 +25,22 @@ function Label({ asset, url }: { asset: Asset; url: string }) {
   }, [url, asset.asset_code]);
 
   return (
-    <div className="label-card border-2 border-foreground rounded-md p-3 bg-white text-black w-[280px]">
-      <div className="font-bold text-sm border-b border-foreground pb-1 mb-2 truncate">
+    <div className="label-card border-2 border-black rounded-[4px] p-1.5 bg-white text-black w-[2in] h-[1.5in] flex flex-col overflow-hidden">
+      <div className="font-bold text-[10px] border-b border-black pb-0.5 mb-1 truncate leading-tight">
         {asset.company || "Asset"}
       </div>
-      <div className="flex gap-2 items-center">
+      <div className="flex gap-1.5 items-start flex-1 min-h-0">
         <canvas ref={qrRef} className="shrink-0" />
-        <div className="border-l border-foreground pl-2 flex-1 min-w-0">
-          <div className="font-bold text-base truncate">{asset.asset_name}</div>
-          <div className="text-xs font-semibold text-muted-foreground tracking-wider">
+        <div className="border-l border-black pl-1.5 flex-1 min-w-0 flex flex-col justify-center">
+          <div className="font-bold text-[11px] truncate leading-tight">{asset.asset_name}</div>
+          <div className="text-[9px] font-semibold text-gray-600 tracking-wider">
             {asset.asset_code}
           </div>
         </div>
       </div>
-      <div className="mt-2 border-t border-foreground pt-2 flex flex-col items-center">
+      <div className="mt-1 border-t border-black pt-1 flex flex-col items-center">
         <svg ref={barRef} className="w-full" />
-        <div className="text-[10px] font-bold tracking-widest mt-1">SCAN FOR COMPLETE DETAILS</div>
+        <div className="text-[7px] font-bold tracking-widest mt-0.5">SCAN FOR DETAILS</div>
       </div>
     </div>
   );
