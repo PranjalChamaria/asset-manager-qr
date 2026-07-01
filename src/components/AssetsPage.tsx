@@ -1,5 +1,7 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+const db = supabase as unknown as { from: (t: string) => any };
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -35,10 +37,10 @@ import type { Asset } from "@/lib/asset-types";
 import { daysUntil } from "@/lib/asset-types";
 import { AssetForm } from "./AssetForm";
 import { LabelSheet } from "./LabelSheet";
-import { assetDatabase } from "@/lib/database";
+import { apiFetch } from "@/lib/api";
 
 async function fetchAssets(): Promise<Asset[]> {
-  return assetDatabase.listAssets();
+  return apiFetch<Asset[]>("/api/assets");
 }
 
 export function AssetsPage() {
@@ -105,9 +107,11 @@ export function AssetsPage() {
   const upsertMut = useMutation({
     mutationFn: async (payload: Record<string, unknown> & { id?: string }) => {
       if (editing) {
-        await assetDatabase.updateAsset(editing.id, payload);
+        const { error } = await db.from("assets").update(payload).eq("id", editing.id);
+        if (error) throw error;
       } else {
-        await assetDatabase.createAsset(payload);
+        const { error } = await db.from("assets").insert(payload);
+        if (error) throw error;
       }
     },
     onSuccess: () => {
@@ -121,7 +125,11 @@ export function AssetsPage() {
 
   const deleteMut = useMutation({
     mutationFn: async (id: string) => {
-      await assetDatabase.softDeleteAsset(id);
+      const { error } = await db
+        .from("assets")
+        .update({ deleted_at: new Date().toISOString() })
+        .eq("id", id);
+      if (error) throw error;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["assets"] });
@@ -133,7 +141,8 @@ export function AssetsPage() {
 
   const restoreMut = useMutation({
     mutationFn: async (id: string) => {
-      await assetDatabase.restoreAsset(id);
+      const { error } = await db.from("assets").update({ deleted_at: null }).eq("id", id);
+      if (error) throw error;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["assets"] });
@@ -144,7 +153,8 @@ export function AssetsPage() {
 
   const purgeMut = useMutation({
     mutationFn: async (id: string) => {
-      await assetDatabase.deleteAsset(id);
+      const { error } = await db.from("assets").delete().eq("id", id);
+      if (error) throw error;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["assets"] });
