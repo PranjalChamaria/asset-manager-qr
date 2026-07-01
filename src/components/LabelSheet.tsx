@@ -11,36 +11,33 @@ function Label({ asset, url }: { asset: Asset; url: string }) {
 
   useEffect(() => {
     if (qrRef.current) {
-      QRCode.toCanvas(qrRef.current, url, { width: 72, margin: 1 });
+      QRCode.toCanvas(qrRef.current, url, { width: 120, margin: 1 });
     }
     if (barRef.current) {
       JsBarcode(barRef.current, asset.asset_code, {
         format: "CODE128",
         displayValue: true,
-        fontSize: 7,
-        height: 20,
+        fontSize: 9,
+        height: 26,
         margin: 0,
       });
     }
   }, [url, asset.asset_code]);
 
   return (
-    <div className="label-card border-2 border-black rounded-[4px] p-1 bg-white text-black w-[2in] h-[1.5in] flex flex-col overflow-hidden">
-      <div className="font-bold text-[9px] border-b border-black pb-0.5 mb-1 truncate leading-tight">
+    <div className="label-card border-2 border-black rounded-[4px] p-1.5 bg-white text-black w-[105mm] h-[40mm] flex flex-row gap-2 items-stretch overflow-hidden">
+      <canvas ref={qrRef} className="shrink-0 h-full w-auto" />
+      <div className="flex-1 min-w-0 flex flex-col justify-between border-l border-black pl-2">
+        <div>
+          <div className="font-bold text-[10px] truncate leading-tight">
         {asset.company || "Asset"}
       </div>
-      <div className="flex gap-1.5 items-start min-h-0">
-        <canvas ref={qrRef} className="shrink-0" />
-        <div className="border-l border-black pl-1.5 flex-1 min-w-0 flex flex-col justify-center">
-          <div className="font-bold text-[10px] truncate leading-tight">{asset.asset_name}</div>
-          <div className="text-[8px] font-semibold text-gray-700 tracking-wide break-words leading-tight">
+          <div className="font-bold text-[12px] truncate leading-tight mt-0.5">{asset.asset_name}</div>
+          <div className="text-[9px] font-semibold text-gray-700 tracking-wide break-words leading-tight mt-0.5">
             {asset.asset_code}
           </div>
         </div>
-      </div>
-      <div className="mt-1 border-t border-black pt-1 flex flex-col items-center">
         <svg ref={barRef} className="w-full" />
-        <div className="text-[7px] font-bold tracking-widest mt-0.5">SCAN FOR DETAILS</div>
       </div>
     </div>
   );
@@ -58,15 +55,20 @@ export function LabelSheet({ asset }: { asset: Asset }) {
           <Printer className="size-4 mr-1.5" /> Print labels
         </Button>
       </div>
-      <div className="print-area flex flex-wrap gap-4 justify-center p-4 bg-muted/30 rounded-lg">
-        <Label asset={asset} url={url} />
-        <Label asset={asset} url={url} />
+      <div className="print-area flex flex-col gap-4 items-center p-4 bg-muted/30 rounded-lg">
+        <div className="label-page"><Label asset={asset} url={url} /></div>
+        <div className="label-page"><Label asset={asset} url={url} /></div>
       </div>
       <style>{`
+        @page { size: 105mm 40mm; margin: 0; }
         @media print {
+          html, body { width: 105mm; margin: 0 !important; padding: 0 !important; background: white !important; }
           body * { visibility: hidden; }
           .print-area, .print-area * { visibility: visible; }
-          .print-area { position: absolute; left: 0; top: 0; background: white !important; padding: 20px; gap: 20px; }
+          .print-area { position: absolute; left: 0; top: 0; padding: 0 !important; gap: 0 !important; background: white !important; display: block !important; }
+          .label-page { width: 105mm; height: 40mm; page-break-after: always; break-after: page; overflow: hidden; }
+          .label-page:last-child { page-break-after: auto; break-after: auto; }
+          .label-card { border: none !important; border-radius: 0 !important; width: 105mm !important; height: 40mm !important; }
         }
       `}</style>
     </div>
