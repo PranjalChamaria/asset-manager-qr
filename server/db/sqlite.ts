@@ -16,6 +16,7 @@ if (!fs.existsSync(databaseDir)) {
 const sqlite = new Database(databaseFile);
 
 sqlite.pragma('journal_mode = WAL');
+sqlite.pragma('foreign_keys = ON');
 
 export function getDatabase() {
   return sqlite;
