@@ -20,6 +20,7 @@ function toFormState(a: Asset | null): FormState {
     serial_number: a.serial_number ?? "",
     purchase_date: a.purchase_date ?? "",
     purchase_price: a.purchase_price?.toString() ?? "",
+    purchase_fund: a.purchase_fund ?? "",
     vendor: a.vendor ?? "",
     department: a.department ?? "",
     user_branch: a.user_branch ?? "",
@@ -69,6 +70,7 @@ export function AssetForm({
       serial_number: form.serial_number || null,
       purchase_date: form.purchase_date || null,
       purchase_price: form.purchase_price ? Number(form.purchase_price) : null,
+      purchase_fund: form.purchase_fund || null,
       vendor: form.vendor || null,
       department: form.department || null,
       user_branch: form.user_branch || null,
@@ -101,6 +103,7 @@ export function AssetForm({
         {field("serial_number", "Serial Number")}
         {field("purchase_date", "Purchase Date", "date")}
         {field("purchase_price", "Purchase Price", "number")}
+        {field("purchase_fund", "Purchased From Which Fund")}
         {field("vendor", "Supplier / Vendor")}
         {field("department", "Department")}
         {field("user_branch", "User Branch")}

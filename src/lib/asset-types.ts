@@ -9,6 +9,7 @@ export type Asset = {
   serial_number: string | null;
   purchase_date: string | null;
   purchase_price: number | null;
+  purchase_fund: string | null;
   vendor: string | null;
   department: string | null;
   user_branch: string | null;
@@ -29,6 +30,7 @@ export const emptyAsset = {
   serial_number: "",
   purchase_date: "",
   purchase_price: "",
+  purchase_fund: "",
   vendor: "",
   department: "",
   user_branch: "",
