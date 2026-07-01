@@ -1,4 +1,5 @@
 import { getDatabase } from '../db/sqlite.js';
+import { assetCodeGenerator } from './asset-code-generator.js';
 
 export interface AssetRecord {
   id: number;
@@ -94,51 +95,56 @@ class AssetService {
     const now = new Date().toISOString();
     const payload = this.buildPayload(input, now);
 
-    const result = db.prepare(`
-      INSERT INTO assets (
-        asset_code,
-        company,
-        asset_name,
-        category,
-        brand,
-        model_number,
-        serial_number,
-        purchase_date,
-        purchase_price,
-        purchase_fund,
-        vendor,
-        department,
-        user_branch,
-        warranty_months,
-        warranty_expiry,
-        status,
-        remarks,
-        created_at,
-        updated_at
-      ) VALUES (
-        @asset_code,
-        @company,
-        @asset_name,
-        @category,
-        @brand,
-        @model_number,
-        @serial_number,
-        @purchase_date,
-        @purchase_price,
-        @purchase_fund,
-        @vendor,
-        @department,
-        @user_branch,
-        @warranty_months,
-        @warranty_expiry,
-        @status,
-        @remarks,
-        @created_at,
-        @updated_at
-      )
-    `).run(payload as Record<string, unknown>);
+    const transaction = db.transaction(() => {
+      const assetCode = assetCodeGenerator.reserveCodeInTransaction(db);
+      const result = db.prepare(`
+        INSERT INTO assets (
+          asset_code,
+          company,
+          asset_name,
+          category,
+          brand,
+          model_number,
+          serial_number,
+          purchase_date,
+          purchase_price,
+          purchase_fund,
+          vendor,
+          department,
+          user_branch,
+          warranty_months,
+          warranty_expiry,
+          status,
+          remarks,
+          created_at,
+          updated_at
+        ) VALUES (
+          @asset_code,
+          @company,
+          @asset_name,
+          @category,
+          @brand,
+          @model_number,
+          @serial_number,
+          @purchase_date,
+          @purchase_price,
+          @purchase_fund,
+          @vendor,
+          @department,
+          @user_branch,
+          @warranty_months,
+          @warranty_expiry,
+          @status,
+          @remarks,
+          @created_at,
+          @updated_at
+        )
+      `).run({ ...payload, asset_code: assetCode } as Record<string, unknown>);
 
-    return this.getAssetById(String(result.lastInsertRowid)) as AssetRecord;
+      return db.prepare('SELECT * FROM assets WHERE id = ?').get(result.lastInsertRowid) as AssetRecord;
+    });
+
+    return transaction();
   }
 
   updateAsset(id: string, input: AssetInput): AssetRecord | undefined {
@@ -225,7 +231,7 @@ class AssetService {
 
   private buildPayload(input: AssetInput, now: string, existing?: AssetRecord) {
     return {
-      asset_code: this.normalizeAssetCode(input.asset_code, existing?.asset_code),
+      asset_code: existing?.asset_code ?? '',
       company: input.company ?? existing?.company ?? null,
       asset_name: input.asset_name ?? existing?.asset_name ?? '',
       category: input.category ?? existing?.category ?? null,
@@ -257,18 +263,6 @@ class AssetService {
     }
   }
 
-  private normalizeAssetCode(assetCode?: string, existingAssetCode?: string | null): string {
-    const trimmed = assetCode?.trim();
-    if (trimmed) {
-      return trimmed;
-    }
-
-    if (existingAssetCode?.trim()) {
-      return existingAssetCode.trim();
-    }
-
-    return `ASSET-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
-  }
 }
 
 export const assetService = new AssetService();

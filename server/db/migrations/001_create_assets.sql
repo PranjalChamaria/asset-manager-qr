@@ -22,6 +22,11 @@ CREATE TABLE IF NOT EXISTS assets (
   deleted_at TEXT
 );
 
+CREATE TABLE IF NOT EXISTS asset_code_sequences (
+  prefix TEXT PRIMARY KEY,
+  next_value INTEGER NOT NULL DEFAULT 1
+);
+
 CREATE INDEX IF NOT EXISTS idx_assets_asset_code ON assets (asset_code);
 CREATE INDEX IF NOT EXISTS idx_assets_status ON assets (status);
 CREATE INDEX IF NOT EXISTS idx_assets_deleted_at ON assets (deleted_at);
