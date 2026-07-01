@@ -1,5 +1,5 @@
-import { supabase } from "@/integrations/supabase/client";
 import type { Asset } from "@/lib/asset-types";
+import { apiFetch } from "@/lib/api";
 
 export type AssetPayload = Record<string, unknown> & { id?: string };
 
@@ -13,47 +13,42 @@ export interface AssetDatabase {
   deleteAsset(id: string): Promise<void>;
 }
 
-export class SupabaseAssetDatabase implements AssetDatabase {
-  private get db() {
-    return supabase as unknown as { from: (table: string) => any };
-  }
-
+export class LocalAssetDatabase implements AssetDatabase {
   async listAssets(): Promise<Asset[]> {
-    const { data, error } = await this.db.from("assets").select("*").order("created_at", { ascending: false });
-    if (error) throw error;
-    return (data ?? []) as Asset[];
+    return apiFetch<Asset[]>("/api/assets");
   }
 
   async getAssetByCode(code: string): Promise<Asset | null> {
-    const { data, error } = await this.db.from("assets").select("*").eq("asset_code", code).maybeSingle();
-    if (error) throw error;
-    return data as Asset | null;
+    return apiFetch<Asset | null>(`/api/assets/${encodeURIComponent(code)}`);
   }
 
   async createAsset(payload: AssetPayload): Promise<void> {
-    const { error } = await this.db.from("assets").insert(payload);
-    if (error) throw error;
+    await apiFetch<void>("/api/assets", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
   }
 
   async updateAsset(id: string, payload: AssetPayload): Promise<void> {
-    const { error } = await this.db.from("assets").update(payload).eq("id", id);
-    if (error) throw error;
+    await apiFetch<void>(`/api/assets/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
   }
 
   async softDeleteAsset(id: string): Promise<void> {
-    const { error } = await this.db.from("assets").update({ deleted_at: new Date().toISOString() }).eq("id", id);
-    if (error) throw error;
+    await apiFetch<void>(`/api/assets/${id}`, { method: "DELETE" });
   }
 
   async restoreAsset(id: string): Promise<void> {
-    const { error } = await this.db.from("assets").update({ deleted_at: null }).eq("id", id);
-    if (error) throw error;
+    await apiFetch<void>(`/api/assets/${id}/restore`, { method: "POST" });
   }
 
   async deleteAsset(id: string): Promise<void> {
-    const { error } = await this.db.from("assets").delete().eq("id", id);
-    if (error) throw error;
+    await apiFetch<void>(`/api/assets/${id}/permanent`, { method: "DELETE" });
   }
 }
 
-export const assetDatabase = new SupabaseAssetDatabase();
+export const assetDatabase = new LocalAssetDatabase();

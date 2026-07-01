@@ -1,7 +1,5 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-const db = supabase as unknown as { from: (t: string) => any };
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -39,14 +37,14 @@ import { AssetForm } from "./AssetForm";
 import { LabelSheet } from "./LabelSheet";
 import { apiFetch } from "@/lib/api";
 
-async function fetchAssets(): Promise<Asset[]> {
-  return apiFetch<Asset[]>("/api/assets");
+async function fetchAssets(view: "active" | "trash", search: string): Promise<Asset[]> {
+  const params = new URLSearchParams({ view });
+  if (search.trim()) params.set("q", search.trim());
+  return apiFetch<Asset[]>(`/api/assets?${params.toString()}`);
 }
 
 export function AssetsPage() {
   const qc = useQueryClient();
-  const { data: assets = [], isLoading } = useQuery({ queryKey: ["assets"], queryFn: fetchAssets });
-
   const [search, setSearch] = useState("");
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Asset | null>(null);
@@ -54,6 +52,10 @@ export function AssetsPage() {
   const [deleteAsset, setDeleteAsset] = useState<Asset | null>(null);
   const [purgeAsset, setPurgeAsset] = useState<Asset | null>(null);
   const [view, setView] = useState<"active" | "trash">("active");
+  const { data: assets = [], isLoading } = useQuery({
+    queryKey: ["assets", view, search],
+    queryFn: () => fetchAssets(view, search),
+  });
   const [unlocked, setUnlocked] = useState(false);
   const [pwOpen, setPwOpen] = useState(false);
   const [pwInput, setPwInput] = useState("");
@@ -83,36 +85,19 @@ export function AssetsPage() {
     }
   };
 
-  const filtered = useMemo(() => {
-    const q = search.toLowerCase().trim();
-    const base = assets.filter((a) => (view === "trash" ? !!a.deleted_at : !a.deleted_at));
-    if (!q) return base;
-    return base.filter((a) =>
-      [
-        a.asset_code,
-        a.asset_name,
-        a.category,
-        a.brand,
-        a.serial_number,
-        a.vendor,
-        a.department,
-        a.user_branch,
-      ].some((v) => v?.toString().toLowerCase().includes(q)),
-    );
-  }, [assets, search, view]);
-
+  const filtered = useMemo(() => assets, [assets]);
   const trashCount = useMemo(() => assets.filter((a) => !!a.deleted_at).length, [assets]);
-  const activeCount = assets.length - trashCount;
+  const activeCount = useMemo(() => assets.filter((a) => !a.deleted_at).length, [assets]);
 
   const upsertMut = useMutation({
     mutationFn: async (payload: Record<string, unknown> & { id?: string }) => {
-      if (editing) {
-        const { error } = await db.from("assets").update(payload).eq("id", editing.id);
-        if (error) throw error;
-      } else {
-        const { error } = await db.from("assets").insert(payload);
-        if (error) throw error;
-      }
+      const route = editing ? `/api/assets/${editing.id}` : "/api/assets";
+      const method = editing ? "PUT" : "POST";
+      return apiFetch<Asset>(route, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["assets"] });
@@ -125,11 +110,7 @@ export function AssetsPage() {
 
   const deleteMut = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await db
-        .from("assets")
-        .update({ deleted_at: new Date().toISOString() })
-        .eq("id", id);
-      if (error) throw error;
+      return apiFetch<void>(`/api/assets/${id}`, { method: "DELETE" });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["assets"] });
@@ -141,8 +122,7 @@ export function AssetsPage() {
 
   const restoreMut = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await db.from("assets").update({ deleted_at: null }).eq("id", id);
-      if (error) throw error;
+      return apiFetch<void>(`/api/assets/${id}/restore`, { method: "POST" });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["assets"] });
@@ -153,8 +133,7 @@ export function AssetsPage() {
 
   const purgeMut = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await db.from("assets").delete().eq("id", id);
-      if (error) throw error;
+      return apiFetch<void>(`/api/assets/${id}/permanent`, { method: "DELETE" });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["assets"] });

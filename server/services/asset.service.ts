@@ -45,14 +45,37 @@ export interface AssetInput {
 }
 
 class AssetService {
-  listAssets(): AssetRecord[] {
+  listAssets(options: { search?: string; view?: 'active' | 'trash' | 'all' } = {}): AssetRecord[] {
     const db = getDatabase();
-    return db.prepare(`
-      SELECT *
-      FROM assets
-      WHERE deleted_at IS NULL
-      ORDER BY created_at DESC
-    `).all() as AssetRecord[];
+    const view = options.view ?? 'active';
+    const search = options.search?.trim() ?? '';
+    const whereClauses: string[] = [];
+    const params: unknown[] = [];
+
+    if (view === 'trash') {
+      whereClauses.push('deleted_at IS NOT NULL');
+    } else if (view === 'active') {
+      whereClauses.push('deleted_at IS NULL');
+    }
+
+    if (search) {
+      whereClauses.push(`(
+        asset_code LIKE ? OR
+        asset_name LIKE ? OR
+        category LIKE ? OR
+        brand LIKE ? OR
+        serial_number LIKE ? OR
+        vendor LIKE ? OR
+        department LIKE ? OR
+        user_branch LIKE ?
+      )`);
+      const term = `%${search}%`;
+      params.push(term, term, term, term, term, term, term, term);
+    }
+
+    const where = whereClauses.length ? `WHERE ${whereClauses.join(' AND ')}` : '';
+    const sql = `SELECT * FROM assets ${where} ORDER BY created_at DESC`;
+    return db.prepare(sql).all(...params) as AssetRecord[];
   }
 
   getAssetById(id: string): AssetRecord | undefined {
@@ -124,7 +147,7 @@ class AssetService {
       return undefined;
     }
 
-    this.validateAssetInput(input, { allowMissingAssetCode: true });
+    this.validateAssetInput(input);
 
     const db = getDatabase();
     const now = new Date().toISOString();
@@ -173,9 +196,36 @@ class AssetService {
     return true;
   }
 
+  restoreAsset(id: string): boolean {
+    const db = getDatabase();
+    const existing = db.prepare('SELECT id FROM assets WHERE id = ?').get(id);
+    if (!existing) {
+      return false;
+    }
+
+    db.prepare(`
+      UPDATE assets
+      SET deleted_at = NULL, updated_at = ?
+      WHERE id = ?
+    `).run(new Date().toISOString(), id);
+
+    return true;
+  }
+
+  permanentDeleteAsset(id: string): boolean {
+    const db = getDatabase();
+    const existing = db.prepare('SELECT id FROM assets WHERE id = ?').get(id);
+    if (!existing) {
+      return false;
+    }
+
+    db.prepare('DELETE FROM assets WHERE id = ?').run(id);
+    return true;
+  }
+
   private buildPayload(input: AssetInput, now: string, existing?: AssetRecord) {
     return {
-      asset_code: input.asset_code ?? existing?.asset_code ?? '',
+      asset_code: this.normalizeAssetCode(input.asset_code, existing?.asset_code),
       company: input.company ?? existing?.company ?? null,
       asset_name: input.asset_name ?? existing?.asset_name ?? '',
       category: input.category ?? existing?.category ?? null,
@@ -197,22 +247,27 @@ class AssetService {
     };
   }
 
-  private validateAssetInput(input: AssetInput, options: { allowMissingAssetCode?: boolean } = {}) {
-    if (!options.allowMissingAssetCode && !input.asset_code) {
-      throw new Error('asset_code is required');
-    }
-
+  private validateAssetInput(input: AssetInput) {
     if (!input.asset_name) {
       throw new Error('asset_name is required');
-    }
-
-    if (typeof input.asset_code === 'string' && input.asset_code.trim() === '') {
-      throw new Error('asset_code cannot be empty');
     }
 
     if (typeof input.asset_name === 'string' && input.asset_name.trim() === '') {
       throw new Error('asset_name cannot be empty');
     }
+  }
+
+  private normalizeAssetCode(assetCode?: string, existingAssetCode?: string | null): string {
+    const trimmed = assetCode?.trim();
+    if (trimmed) {
+      return trimmed;
+    }
+
+    if (existingAssetCode?.trim()) {
+      return existingAssetCode.trim();
+    }
+
+    return `ASSET-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
   }
 }
 

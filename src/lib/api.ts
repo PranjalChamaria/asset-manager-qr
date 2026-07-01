@@ -8,5 +8,15 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
     const errorText = await response.text();
     throw new Error(errorText || `Request failed with status ${response.status}`);
   }
-  return response.json() as Promise<T>;
+
+  if (response.status === 204 || response.headers.get("content-length") === "0") {
+    return null as T;
+  }
+
+  const contentType = response.headers.get("content-type") || "";
+  if (contentType.includes("application/json")) {
+    return (await response.json()) as T;
+  }
+
+  return (await response.text()) as T;
 }
