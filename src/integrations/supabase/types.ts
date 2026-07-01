@@ -24,7 +24,6 @@ export type Database = {
           created_at: string
           department: string | null
           id: string
-          location: string | null
           model_number: string | null
           purchase_date: string | null
           purchase_price: number | null
@@ -32,6 +31,7 @@ export type Database = {
           serial_number: string | null
           status: string
           updated_at: string
+          user_branch: string | null
           vendor: string | null
           warranty_expiry: string | null
           warranty_months: number | null
@@ -45,7 +45,6 @@ export type Database = {
           created_at?: string
           department?: string | null
           id?: string
-          location?: string | null
           model_number?: string | null
           purchase_date?: string | null
           purchase_price?: number | null
@@ -53,6 +52,7 @@ export type Database = {
           serial_number?: string | null
           status?: string
           updated_at?: string
+          user_branch?: string | null
           vendor?: string | null
           warranty_expiry?: string | null
           warranty_months?: number | null
@@ -66,7 +66,6 @@ export type Database = {
           created_at?: string
           department?: string | null
           id?: string
-          location?: string | null
           model_number?: string | null
           purchase_date?: string | null
           purchase_price?: number | null
@@ -74,6 +73,7 @@ export type Database = {
           serial_number?: string | null
           status?: string
           updated_at?: string
+          user_branch?: string | null
           vendor?: string | null
           warranty_expiry?: string | null
           warranty_months?: number | null

@@ -83,7 +83,7 @@ function AssetDetail() {
           <Row label="Purchase Price" value={data.purchase_price != null ? `₹ ${data.purchase_price}` : null} />
           <Row label="Vendor" value={data.vendor} />
           <Row label="Department" value={data.department} />
-          <Row label="Location" value={data.location} />
+          <Row label="User Branch" value={data.user_branch} />
           <Row label="Warranty Period" value={data.warranty_months ? `${data.warranty_months} months` : null} />
           <Row label="Warranty Expiry" value={data.warranty_expiry} />
           <Row label="Remaining Days" value={

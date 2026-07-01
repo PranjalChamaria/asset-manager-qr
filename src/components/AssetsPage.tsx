@@ -65,7 +65,7 @@ export function AssetsPage() {
     const q = search.toLowerCase().trim();
     if (!q) return assets;
     return assets.filter((a) =>
-      [a.asset_code, a.asset_name, a.category, a.brand, a.serial_number, a.vendor, a.department, a.location]
+      [a.asset_code, a.asset_name, a.category, a.brand, a.serial_number, a.vendor, a.department, a.user_branch]
         .some((v) => v?.toString().toLowerCase().includes(q))
     );
   }, [assets, search]);
@@ -148,7 +148,7 @@ export function AssetsPage() {
                 <TableHead>Serial</TableHead>
                 <TableHead>Vendor</TableHead>
                 <TableHead>Department</TableHead>
-                <TableHead>Location</TableHead>
+                <TableHead>User Branch</TableHead>
                 <TableHead>Warranty</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
@@ -172,7 +172,7 @@ export function AssetsPage() {
                     <TableCell className="font-mono text-xs">{a.serial_number}</TableCell>
                     <TableCell>{a.vendor}</TableCell>
                     <TableCell>{a.department}</TableCell>
-                    <TableCell>{a.location}</TableCell>
+                    <TableCell>{a.user_branch}</TableCell>
                     <TableCell>
                       {a.warranty_expiry ? (
                         <span className={days !== null && days < 0 ? "text-destructive" : days !== null && days < 30 ? "text-amber-600" : ""}>
