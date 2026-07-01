@@ -22,6 +22,7 @@ export type Database = {
           category: string | null
           company: string | null
           created_at: string
+          deleted_at: string | null
           department: string | null
           id: string
           model_number: string | null
@@ -44,6 +45,7 @@ export type Database = {
           category?: string | null
           company?: string | null
           created_at?: string
+          deleted_at?: string | null
           department?: string | null
           id?: string
           model_number?: string | null
@@ -66,6 +68,7 @@ export type Database = {
           category?: string | null
           company?: string | null
           created_at?: string
+          deleted_at?: string | null
           department?: string | null
           id?: string
           model_number?: string | null

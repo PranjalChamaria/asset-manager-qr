@@ -13,7 +13,8 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Pencil, Trash2, QrCode, Package, Search } from "lucide-react";
+import { Plus, Pencil, Trash2, QrCode, Package, Search, RotateCcw, Trash } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import type { Asset } from "@/lib/asset-types";
 import { daysUntil } from "@/lib/asset-types";
@@ -35,6 +36,8 @@ export function AssetsPage() {
   const [editing, setEditing] = useState<Asset | null>(null);
   const [labelAsset, setLabelAsset] = useState<Asset | null>(null);
   const [deleteAsset, setDeleteAsset] = useState<Asset | null>(null);
+  const [purgeAsset, setPurgeAsset] = useState<Asset | null>(null);
+  const [view, setView] = useState<"active" | "trash">("active");
   const [unlocked, setUnlocked] = useState(false);
   const [pwOpen, setPwOpen] = useState(false);
   const [pwInput, setPwInput] = useState("");
@@ -63,12 +66,16 @@ export function AssetsPage() {
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim();
-    if (!q) return assets;
-    return assets.filter((a) =>
+    const base = assets.filter((a) => (view === "trash" ? !!a.deleted_at : !a.deleted_at));
+    if (!q) return base;
+    return base.filter((a) =>
       [a.asset_code, a.asset_name, a.category, a.brand, a.serial_number, a.vendor, a.department, a.user_branch]
         .some((v) => v?.toString().toLowerCase().includes(q))
     );
-  }, [assets, search]);
+  }, [assets, search, view]);
+
+  const trashCount = useMemo(() => assets.filter((a) => !!a.deleted_at).length, [assets]);
+  const activeCount = assets.length - trashCount;
 
   const upsertMut = useMutation({
     mutationFn: async (payload: Record<string, unknown> & { id?: string }) => {
@@ -91,13 +98,38 @@ export function AssetsPage() {
 
   const deleteMut = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await db.from("assets").delete().eq("id", id);
+      const { error } = await db.from("assets").update({ deleted_at: new Date().toISOString() }).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["assets"] });
       setDeleteAsset(null);
-      toast.success("Asset deleted");
+      toast.success("Moved to recycle bin");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const restoreMut = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await db.from("assets").update({ deleted_at: null }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["assets"] });
+      toast.success("Asset restored");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const purgeMut = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await db.from("assets").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["assets"] });
+      setPurgeAsset(null);
+      toast.success("Permanently deleted");
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -122,6 +154,12 @@ export function AssetsPage() {
       </header>
 
       <main className="container mx-auto px-6 py-6 space-y-4">
+        <Tabs value={view} onValueChange={(v) => setView(v as "active" | "trash")}>
+          <TabsList>
+            <TabsTrigger value="active">Active ({activeCount})</TabsTrigger>
+            <TabsTrigger value="trash">Recycle Bin ({trashCount})</TabsTrigger>
+          </TabsList>
+        </Tabs>
         <div className="flex items-center gap-3">
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
@@ -159,7 +197,7 @@ export function AssetsPage() {
                 <TableRow><TableCell colSpan={11} className="text-center py-10 text-muted-foreground">Loading…</TableCell></TableRow>
               ) : filtered.length === 0 ? (
                 <TableRow><TableCell colSpan={11} className="text-center py-10 text-muted-foreground">
-                  No assets yet. Click "Add Asset" to create your first record.
+                  {view === "trash" ? "Recycle bin is empty." : "No assets yet. Click \"Add Asset\" to create your first record."}
                 </TableCell></TableRow>
               ) : filtered.map((a) => {
                 const days = daysUntil(a.warranty_expiry);
@@ -185,15 +223,28 @@ export function AssetsPage() {
                     </TableCell>
                     <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                       <div className="flex justify-end gap-1">
-                        <Button size="icon" variant="ghost" onClick={() => setLabelAsset(a)} title="QR & Barcode">
-                          <QrCode className="size-4" />
-                        </Button>
-                        <Button size="icon" variant="ghost" onClick={() => requireAuth(() => { setEditing(a); setFormOpen(true); })} title="Edit">
-                          <Pencil className="size-4" />
-                        </Button>
-                        <Button size="icon" variant="ghost" onClick={() => requireAuth(() => setDeleteAsset(a))} title="Delete">
-                          <Trash2 className="size-4 text-destructive" />
-                        </Button>
+                        {view === "active" ? (
+                          <>
+                            <Button size="icon" variant="ghost" onClick={() => setLabelAsset(a)} title="QR & Barcode">
+                              <QrCode className="size-4" />
+                            </Button>
+                            <Button size="icon" variant="ghost" onClick={() => requireAuth(() => { setEditing(a); setFormOpen(true); })} title="Edit">
+                              <Pencil className="size-4" />
+                            </Button>
+                            <Button size="icon" variant="ghost" onClick={() => requireAuth(() => setDeleteAsset(a))} title="Move to recycle bin">
+                              <Trash2 className="size-4 text-destructive" />
+                            </Button>
+                          </>
+                        ) : (
+                          <>
+                            <Button size="icon" variant="ghost" onClick={() => requireAuth(() => restoreMut.mutate(a.id))} title="Restore">
+                              <RotateCcw className="size-4" />
+                            </Button>
+                            <Button size="icon" variant="ghost" onClick={() => requireAuth(() => setPurgeAsset(a))} title="Delete permanently">
+                              <Trash className="size-4 text-destructive" />
+                            </Button>
+                          </>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -236,14 +287,29 @@ export function AssetsPage() {
       <AlertDialog open={!!deleteAsset} onOpenChange={(o) => !o && setDeleteAsset(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete this asset?</AlertDialogTitle>
+            <AlertDialogTitle>Move to recycle bin?</AlertDialogTitle>
             <AlertDialogDescription>
-              {deleteAsset?.asset_code} — {deleteAsset?.asset_name}. This action can't be undone.
+              {deleteAsset?.asset_code} — {deleteAsset?.asset_name}. You can restore it later from the recycle bin.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={() => deleteAsset && deleteMut.mutate(deleteAsset.id)}>Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!purgeAsset} onOpenChange={(o) => !o && setPurgeAsset(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete permanently?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {purgeAsset?.asset_code} — {purgeAsset?.asset_name}. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => purgeAsset && purgeMut.mutate(purgeAsset.id)}>Delete forever</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
