@@ -22,7 +22,7 @@ function toFormState(a: Asset | null): FormState {
     purchase_price: a.purchase_price?.toString() ?? "",
     vendor: a.vendor ?? "",
     department: a.department ?? "",
-    location: a.location ?? "",
+    user_branch: a.user_branch ?? "",
     warranty_months: a.warranty_months?.toString() ?? "",
     warranty_expiry: a.warranty_expiry ?? "",
     status: a.status ?? "Active",
@@ -71,7 +71,7 @@ export function AssetForm({
       purchase_price: form.purchase_price ? Number(form.purchase_price) : null,
       vendor: form.vendor || null,
       department: form.department || null,
-      location: form.location || null,
+      user_branch: form.user_branch || null,
       warranty_months: form.warranty_months ? Number(form.warranty_months) : null,
       warranty_expiry: form.warranty_expiry || null,
       status: form.status || "Active",
@@ -103,7 +103,7 @@ export function AssetForm({
         {field("purchase_price", "Purchase Price", "number")}
         {field("vendor", "Supplier / Vendor")}
         {field("department", "Department")}
-        {field("location", "Location")}
+        {field("user_branch", "User Branch")}
         {field("warranty_months", "Warranty Period (months)", "number")}
         {field("warranty_expiry", "Warranty Expiry", "date")}
         <div className="space-y-1.5">
