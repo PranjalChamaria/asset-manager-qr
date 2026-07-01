@@ -26,6 +26,7 @@ export type Database = {
           id: string
           model_number: string | null
           purchase_date: string | null
+          purchase_fund: string | null
           purchase_price: number | null
           remarks: string | null
           serial_number: string | null
@@ -47,6 +48,7 @@ export type Database = {
           id?: string
           model_number?: string | null
           purchase_date?: string | null
+          purchase_fund?: string | null
           purchase_price?: number | null
           remarks?: string | null
           serial_number?: string | null
@@ -68,6 +70,7 @@ export type Database = {
           id?: string
           model_number?: string | null
           purchase_date?: string | null
+          purchase_fund?: string | null
           purchase_price?: number | null
           remarks?: string | null
           serial_number?: string | null
