@@ -11,7 +11,7 @@ export type Asset = {
   purchase_price: number | null;
   vendor: string | null;
   department: string | null;
-  location: string | null;
+  user_branch: string | null;
   warranty_months: number | null;
   warranty_expiry: string | null;
   status: string;
@@ -31,7 +31,7 @@ export const emptyAsset = {
   purchase_price: "",
   vendor: "",
   department: "",
-  location: "",
+  user_branch: "",
   warranty_months: "",
   warranty_expiry: "",
   status: "Active",
