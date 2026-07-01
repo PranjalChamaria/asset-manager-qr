@@ -9,6 +9,8 @@ const __dirname = path.dirname(__filename);
 const databaseDir = path.resolve(__dirname, '../../database');
 const databaseFile = path.join(databaseDir, 'assets.db');
 
+console.log(`[sqlite] Database file: ${databaseFile}`);
+
 if (!fs.existsSync(databaseDir)) {
   fs.mkdirSync(databaseDir, { recursive: true });
 }

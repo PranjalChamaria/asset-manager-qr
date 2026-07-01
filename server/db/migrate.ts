@@ -29,6 +29,8 @@ export function runMigrations() {
   const db = getDatabase();
   const migrationsDir = resolveMigrationDirectory();
 
+  console.log(`[sqlite] Migration directory: ${migrationsDir}`);
+
   db.exec(`
     CREATE TABLE IF NOT EXISTS schema_migrations (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -44,11 +46,23 @@ export function runMigrations() {
     .filter((file) => file.endsWith('.sql'))
     .sort((a, b) => a.localeCompare(b));
 
-  for (const file of migrationFiles) {
-    if (appliedNames.has(file)) continue;
+  console.log(`[sqlite] Migration files found: ${migrationFiles.length}`);
 
+  let appliedCount = 0;
+
+  for (const file of migrationFiles) {
+    if (appliedNames.has(file)) {
+      console.log(`[sqlite] Skipping already applied migration: ${file}`);
+      continue;
+    }
+
+    console.log(`[sqlite] Executing migration: ${file}`);
     const migrationSql = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
     db.exec(migrationSql);
     db.prepare('INSERT INTO schema_migrations (name) VALUES (?)').run(file);
+    appliedCount += 1;
   }
+
+  console.log(`[sqlite] Total migrations applied: ${appliedCount}`);
+  console.log('[sqlite] Database initialization complete');
 }
