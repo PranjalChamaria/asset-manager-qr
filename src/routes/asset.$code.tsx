@@ -81,6 +81,7 @@ function AssetDetail() {
           <Row label="Serial Number" value={<span className="font-mono">{data.serial_number}</span>} />
           <Row label="Purchase Date" value={data.purchase_date} />
           <Row label="Purchase Price" value={data.purchase_price != null ? `₹ ${data.purchase_price}` : null} />
+          <Row label="Purchased From Fund" value={data.purchase_fund} />
           <Row label="Vendor" value={data.vendor} />
           <Row label="Department" value={data.department} />
           <Row label="User Branch" value={data.user_branch} />
