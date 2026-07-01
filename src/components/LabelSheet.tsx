@@ -5,13 +5,13 @@ import { Button } from "@/components/ui/button";
 import type { Asset } from "@/lib/asset-types";
 import { Printer } from "lucide-react";
 
-function Label({ asset, url }: { asset: Asset; url: string }) {
+function Label({ asset, text }: { asset: Asset; text: string }) {
   const qrRef = useRef<HTMLCanvasElement>(null);
   const barRef = useRef<SVGSVGElement>(null);
 
   useEffect(() => {
     if (qrRef.current) {
-      QRCode.toCanvas(qrRef.current, url, { width: 110, margin: 1 });
+      QRCode.toCanvas(qrRef.current, text, { width: 110, margin: 1 });
     }
     if (barRef.current) {
       JsBarcode(barRef.current, asset.asset_code, {
@@ -22,7 +22,7 @@ function Label({ asset, url }: { asset: Asset; url: string }) {
         margin: 0,
       });
     }
-  }, [url, asset.asset_code]);
+  }, [text, asset.asset_code]);
 
   return (
     <div className="label-card border-2 border-black rounded-[4px] p-1 bg-white text-black w-[50.8mm] h-[38.1mm] flex flex-row gap-1 items-stretch overflow-hidden">
@@ -30,9 +30,11 @@ function Label({ asset, url }: { asset: Asset; url: string }) {
       <div className="flex-1 min-w-0 flex flex-col justify-between border-l border-black pl-1">
         <div>
           <div className="font-bold text-[8px] truncate leading-tight">
-        {asset.company || "Asset"}
-      </div>
-          <div className="font-bold text-[10px] truncate leading-tight mt-0.5">{asset.asset_name}</div>
+            {asset.company || "Asset"}
+          </div>
+          <div className="font-bold text-[10px] truncate leading-tight mt-0.5">
+            {asset.asset_name}
+          </div>
           <div className="text-[7px] font-semibold text-gray-700 tracking-wide break-words leading-tight mt-0.5">
             {asset.asset_code}
           </div>
@@ -44,9 +46,20 @@ function Label({ asset, url }: { asset: Asset; url: string }) {
 }
 
 export function LabelSheet({ asset }: { asset: Asset }) {
-  const url = typeof window !== "undefined"
-    ? `${window.location.origin}/asset/${asset.asset_code}`
-    : `/asset/${asset.asset_code}`;
+  const lines = [
+    `Asset Code: ${asset.asset_code}`,
+    `Name: ${asset.asset_name}`,
+    `Company: ${asset.company || ""}`,
+    `Category: ${asset.category || ""}`,
+    `Brand: ${asset.brand || ""}`,
+    `Serial: ${asset.serial_number || ""}`,
+    `Vendor: ${asset.vendor || ""}`,
+    `Department: ${asset.department || ""}`,
+    `Branch: ${asset.user_branch || ""}`,
+    `Status: ${asset.status || ""}`,
+  ].filter((line) => line.split(": ")[1]?.trim() !== "");
+
+  const qrText = lines.join("\n");
 
   return (
     <div className="space-y-4">
@@ -56,8 +69,8 @@ export function LabelSheet({ asset }: { asset: Asset }) {
         </Button>
       </div>
       <div className="print-area flex flex-row gap-0 justify-center p-4 bg-muted/30 rounded-lg">
-        <Label asset={asset} url={url} />
-        <Label asset={asset} url={url} />
+        <Label asset={asset} text={qrText} />
+        <Label asset={asset} text={qrText} />
       </div>
       <style>{`
         @page { size: 101.6mm 38.1mm; margin: 0; }
