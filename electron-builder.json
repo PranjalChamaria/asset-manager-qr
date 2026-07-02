@@ -1,6 +1,6 @@
 {
-  "appId": "com.assetmanager.desktop",
-  "productName": "Asset Manager",
+  "appId": "com.assetcommand.desktop",
+  "productName": "Asset Command",
   "files": [
     "electron/**",
     "server/dist/**",
@@ -12,7 +12,22 @@
     "buildResources": "build"
   },
   "win": {
-    "target": ["nsis"]
+    "target": [
+      {
+        "target": "nsis",
+        "arch": ["x64"]
+      }
+    ],
+    "icon": "build/icon.ico",
+    "signAndEditExecutable": false,
+    "artifactName": "${productName}-Setup-${version}.${ext}"
+  },
+  "nsis": {
+    "oneClick": false,
+    "perMachine": false,
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true
   },
   "mac": {
     "target": ["dmg"]

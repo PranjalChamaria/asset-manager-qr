@@ -1,5 +1,9 @@
 {
   "name": "tanstack_start_ts",
+  "version": "1.0.0",
+  "productName": "Asset Command",
+  "description": "Asset management desktop application",
+  "author": "Asset Command",
   "private": true,
   "sideEffects": false,
   "type": "module",
@@ -16,7 +20,8 @@
     "electron": "npm run electron:dev",
     "electron:dev": "concurrently -k \"npm run dev\" \"wait-on http://127.0.0.1:8080 && electron .\"",
     "electron:build": "npm run build && electron .",
-    "electron:package": "electron-builder"
+    "electron:package": "electron-builder",
+    "postinstall": "electron-builder install-app-deps"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
