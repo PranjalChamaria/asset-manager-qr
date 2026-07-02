@@ -1,0 +1,23 @@
+{
+  "appId": "com.assetmanager.desktop",
+  "productName": "Asset Manager",
+  "files": [
+    "electron/**",
+    "server/dist/**",
+    "dist/**",
+    "package.json",
+    "node_modules/**"
+  ],
+  "directories": {
+    "buildResources": "build"
+  },
+  "win": {
+    "target": ["nsis"]
+  },
+  "mac": {
+    "target": ["dmg"]
+  },
+  "linux": {
+    "target": ["AppImage"]
+  }
+}

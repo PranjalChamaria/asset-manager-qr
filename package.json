@@ -3,6 +3,7 @@
   "private": true,
   "sideEffects": false,
   "type": "module",
+  "main": "electron/main.cjs",
   "scripts": {
     "dev": "vite dev",
     "build": "vite build",
@@ -11,7 +12,11 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "server": "tsc -p server/tsconfig.json && node server/dist/index.js",
-    "dev:all": "concurrently \"npm run dev\" \"npm run server\""
+    "dev:all": "concurrently \"npm run dev\" \"npm run server\"",
+    "electron": "npm run electron:dev",
+    "electron:dev": "concurrently -k \"npm run dev\" \"wait-on http://127.0.0.1:8080 && electron .\"",
+    "electron:build": "npm run build && electron .",
+    "electron:package": "electron-builder"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -75,6 +80,7 @@
     "zod": "^3.24.2"
   },
   "devDependencies": {
+    "@electron/rebuild": "^4.1.0",
     "@eslint/js": "^9.32.0",
     "@lovable.dev/vite-tanstack-config": "2.6.4",
     "@types/better-sqlite3": "^7.2.0",
@@ -85,6 +91,8 @@
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "^5.2.0",
+    "electron": "^36.2.0",
+    "electron-builder": "^26.0.0",
     "eslint": "^9.32.0",
     "eslint-config-prettier": "^10.1.1",
     "eslint-plugin-prettier": "^5.2.6",
@@ -95,7 +103,8 @@
     "prettier": "^3.7.3",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.56.1",
-    "vite": "^8.0.16"
+    "vite": "^8.0.16",
+    "wait-on": "^9.0.10"
   },
   "overrides": {
     "js-yaml": "^4.3.0"
