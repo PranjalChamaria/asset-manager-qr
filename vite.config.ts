@@ -1,15 +1,44 @@
-// @lovable.dev/vite-tanstack-config already includes the following — do NOT add them manually
-// or the app will break with duplicate plugins:
-//   - tanstackStart, viteReact, tailwindcss, tsConfigPaths, nitro (build-only using cloudflare as a default target),
-//     componentTagger (dev-only), VITE_* env injection, @ path alias, React/TanStack dedupe,
-//     error logger plugins, and sandbox detection (port/host/strictPort).
-// You can pass additional config via defineConfig({ vite: { ... }, etc... }) if needed.
-import { defineConfig } from "@lovable.dev/vite-tanstack-config";
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
+import { TanStackRouterVite } from "@tanstack/router-plugin/vite";
+import tsconfigPaths from "vite-tsconfig-paths";
+import path from "path";
 
+// Clean SPA build — no SSR, no Nitro, no Cloudflare, no TanStack Start.
+// The Express + SQLite backend lives in server/ and runs as a separate process
+// (managed by Electron in production, or via `npm run server` in development).
 export default defineConfig({
-  tanstackStart: {
-    // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
-    // nitro/vite builds from this
-    server: { entry: "server" },
+  // base "./" is required so asset paths resolve correctly when loaded via
+  // file:// in the packaged Electron app.
+  base: "./",
+
+  plugins: [
+    TanStackRouterVite({
+      // Point to src/routes so the plugin can auto-generate routeTree.gen.ts
+      routesDirectory: "./src/routes",
+      generatedRouteTree: "./src/routeTree.gen.ts",
+    }),
+    react(),
+    tailwindcss(),
+    tsconfigPaths(),
+  ],
+
+  resolve: {
+    alias: {
+      "@": path.resolve(__dirname, "./src"),
+    },
+  },
+
+  // Vite SPA output lands in dist/
+  build: {
+    outDir: "dist",
+    emptyOutDir: true,
+  },
+
+  server: {
+    port: 8080,
+    host: "127.0.0.1",
+    strictPort: true,
   },
 });

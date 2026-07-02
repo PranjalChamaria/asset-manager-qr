@@ -1,0 +1,60 @@
+{
+  "appId": "com.assetcommand.desktop",
+  "productName": "Asset Command",
+
+  "files": [
+    "electron/**",
+    "server/dist/**",
+    "dist/**",
+    "package.json"
+  ],
+
+  "extraResources": [
+    {
+      "from": "server/db/migrations",
+      "to": "server-resources/db/migrations",
+      "filter": ["**/*.sql"]
+    }
+  ],
+
+  "asar": true,
+  "npmRebuild": false,
+  "asarUnpack": [
+    "node_modules/better-sqlite3/**",
+    "node_modules/bindings/**",
+    "node_modules/file-uri-to-path/**"
+  ],
+
+  "directories": {
+    "buildResources": "build",
+    "output": "release"
+  },
+
+  "win": {
+    "target": [
+      {
+        "target": "nsis",
+        "arch": ["x64"]
+      }
+    ],
+    "icon": "build/icon.ico",
+    "signAndEditExecutable": false,
+    "artifactName": "${productName}-Setup-${version}.${ext}"
+  },
+
+  "nsis": {
+    "oneClick": false,
+    "perMachine": false,
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true
+  },
+
+  "mac": {
+    "target": ["dmg"]
+  },
+
+  "linux": {
+    "target": ["AppImage"]
+  }
+}

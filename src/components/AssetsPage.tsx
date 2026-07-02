@@ -1,36 +1,60 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-const db = supabase as unknown as { from: (t: string) => any };
+import * as XLSX from "xlsx";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Pencil, Trash2, QrCode, Package, Search, RotateCcw, Trash } from "lucide-react";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Plus,
+  Pencil,
+  Trash2,
+  QrCode,
+  Package,
+  Search,
+  RotateCcw,
+  Trash,
+  Download,
+} from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import type { Asset } from "@/lib/asset-types";
-import { daysUntil } from "@/lib/asset-types";
 import { AssetForm } from "./AssetForm";
 import { LabelSheet } from "./LabelSheet";
+import { apiFetch } from "@/lib/api";
 
-async function fetchAssets(): Promise<Asset[]> {
-  const { data, error } = await db.from("assets").select("*").order("created_at", { ascending: false });
-  if (error) throw error;
-  return (data ?? []) as Asset[];
+async function fetchAssets(view: "active" | "trash", search: string): Promise<Asset[]> {
+  const params = new URLSearchParams({ view });
+  if (search.trim()) params.set("q", search.trim());
+  return apiFetch<Asset[]>(`/api/assets?${params.toString()}`);
 }
 
 export function AssetsPage() {
   const qc = useQueryClient();
-  const { data: assets = [], isLoading } = useQuery({ queryKey: ["assets"], queryFn: fetchAssets });
-
   const [search, setSearch] = useState("");
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Asset | null>(null);
@@ -38,6 +62,20 @@ export function AssetsPage() {
   const [deleteAsset, setDeleteAsset] = useState<Asset | null>(null);
   const [purgeAsset, setPurgeAsset] = useState<Asset | null>(null);
   const [view, setView] = useState<"active" | "trash">("active");
+  const { data: assets = [], isLoading } = useQuery({
+    queryKey: ["assets", view, search],
+    queryFn: () => fetchAssets(view, search),
+  });
+  const { data: allAssets = [] } = useQuery({
+    queryKey: ["assets-all"],
+    queryFn: async () => {
+      const [active, trash] = await Promise.all([
+        fetchAssets("active", ""),
+        fetchAssets("trash", ""),
+      ]);
+      return [...active, ...trash];
+    },
+  });
   const [unlocked, setUnlocked] = useState(false);
   const [pwOpen, setPwOpen] = useState(false);
   const [pwInput, setPwInput] = useState("");
@@ -46,7 +84,10 @@ export function AssetsPage() {
   const ADMIN_PW = "admin123";
 
   const requireAuth = (action: () => void) => {
-    if (unlocked) { action(); return; }
+    if (unlocked) {
+      action();
+      return;
+    }
     setPendingAction(() => action);
     setPwInput("");
     setPwOpen(true);
@@ -64,31 +105,23 @@ export function AssetsPage() {
     }
   };
 
-  const filtered = useMemo(() => {
-    const q = search.toLowerCase().trim();
-    const base = assets.filter((a) => (view === "trash" ? !!a.deleted_at : !a.deleted_at));
-    if (!q) return base;
-    return base.filter((a) =>
-      [a.asset_code, a.asset_name, a.category, a.brand, a.serial_number, a.vendor, a.department, a.user_branch]
-        .some((v) => v?.toString().toLowerCase().includes(q))
-    );
-  }, [assets, search, view]);
-
-  const trashCount = useMemo(() => assets.filter((a) => !!a.deleted_at).length, [assets]);
-  const activeCount = assets.length - trashCount;
+  const filtered = useMemo(() => assets, [assets]);
+  const trashCount = useMemo(() => allAssets.filter((a) => !!a.deleted_at).length, [allAssets]);
+  const activeCount = useMemo(() => allAssets.filter((a) => !a.deleted_at).length, [allAssets]);
 
   const upsertMut = useMutation({
     mutationFn: async (payload: Record<string, unknown> & { id?: string }) => {
-      if (editing) {
-        const { error } = await db.from("assets").update(payload).eq("id", editing.id);
-        if (error) throw error;
-      } else {
-        const { error } = await db.from("assets").insert(payload);
-        if (error) throw error;
-      }
+      const route = editing ? `/api/assets/${editing.id}` : "/api/assets";
+      const method = editing ? "PUT" : "POST";
+      return apiFetch<Asset>(route, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["assets"] });
+      qc.invalidateQueries({ queryKey: ["assets-all"] });
       setFormOpen(false);
       setEditing(null);
       toast.success(editing ? "Asset updated" : "Asset added");
@@ -98,11 +131,11 @@ export function AssetsPage() {
 
   const deleteMut = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await db.from("assets").update({ deleted_at: new Date().toISOString() }).eq("id", id);
-      if (error) throw error;
+      return apiFetch<void>(`/api/assets/${id}`, { method: "DELETE" });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["assets"] });
+      qc.invalidateQueries({ queryKey: ["assets-all"] });
       setDeleteAsset(null);
       toast.success("Moved to recycle bin");
     },
@@ -111,11 +144,11 @@ export function AssetsPage() {
 
   const restoreMut = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await db.from("assets").update({ deleted_at: null }).eq("id", id);
-      if (error) throw error;
+      return apiFetch<void>(`/api/assets/${id}/restore`, { method: "POST" });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["assets"] });
+      qc.invalidateQueries({ queryKey: ["assets-all"] });
       toast.success("Asset restored");
     },
     onError: (e: Error) => toast.error(e.message),
@@ -123,16 +156,61 @@ export function AssetsPage() {
 
   const purgeMut = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await db.from("assets").delete().eq("id", id);
-      if (error) throw error;
+      return apiFetch<void>(`/api/assets/${id}/permanent`, { method: "DELETE" });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["assets"] });
+      qc.invalidateQueries({ queryKey: ["assets-all"] });
       setPurgeAsset(null);
       toast.success("Permanently deleted");
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
+  const exportActiveAssets = () => {
+    const activeAssets = allAssets.filter((asset) => !asset.deleted_at);
+    if (activeAssets.length === 0) {
+      toast.error("No active assets to export");
+      return;
+    }
+
+    const rows = activeAssets.map((asset) => ({
+      asset_code: asset.asset_code,
+      asset_name: asset.asset_name,
+      category: asset.category || "",
+      brand: asset.brand || "",
+      model_number: asset.model_number || "",
+      serial_number: asset.serial_number || "",
+      purchase_date: asset.purchase_date || "",
+      purchase_price: asset.purchase_price ?? "",
+      purchase_fund: asset.purchase_fund || "",
+      vendor: asset.vendor || "",
+      department: asset.department || "",
+      user_branch: asset.user_branch || "",
+      warranty_months: asset.warranty_months ?? "",
+      status: asset.status || "",
+      remarks: asset.remarks || "",
+      created_at: asset.created_at || "",
+      updated_at: asset.updated_at || "",
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Active Assets");
+    const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
+    const blob = new Blob([excelBuffer], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "active-assets.xlsx";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    toast.success("Active assets exported");
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -147,9 +225,19 @@ export function AssetsPage() {
               <p className="text-xs text-muted-foreground">Unit readiness control</p>
             </div>
           </div>
-          <Button onClick={() => { setEditing(null); setFormOpen(true); }}>
-            <Plus className="size-4 mr-1.5" /> Add Asset
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={exportActiveAssets}>
+              <Download className="size-4 mr-1.5" /> Export Excel
+            </Button>
+            <Button
+              onClick={() => {
+                setEditing(null);
+                setFormOpen(true);
+              }}
+            >
+              <Plus className="size-4 mr-1.5" /> Add Asset
+            </Button>
+          </div>
         </div>
       </header>
 
@@ -175,99 +263,165 @@ export function AssetsPage() {
           </div>
         </div>
 
-        <div className="border rounded-lg bg-card overflow-hidden">
-          <Table>
+        <div className="border rounded-lg bg-card overflow-x-auto">
+          <Table className="min-w-[1400px]">
             <TableHeader>
               <TableRow>
                 <TableHead>Asset Code</TableHead>
-                <TableHead>Name</TableHead>
+                <TableHead>Asset Name</TableHead>
                 <TableHead>Category</TableHead>
                 <TableHead>Brand</TableHead>
-                <TableHead>Serial</TableHead>
-                <TableHead>Vendor</TableHead>
+                <TableHead>Model Number</TableHead>
+                <TableHead>Serial Number</TableHead>
+                <TableHead>Purchase Date</TableHead>
+                <TableHead>Purchase Price</TableHead>
+                <TableHead>Fund</TableHead>
+                <TableHead>Supplier / Vendor</TableHead>
                 <TableHead>Department</TableHead>
                 <TableHead>User Branch</TableHead>
-                <TableHead>Warranty</TableHead>
+                <TableHead>Warranty Period</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Remarks</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                <TableRow><TableCell colSpan={11} className="text-center py-10 text-muted-foreground">Loading…</TableCell></TableRow>
+                <TableRow>
+                  <TableCell colSpan={16} className="text-center py-10 text-muted-foreground">
+                    Loading…
+                  </TableCell>
+                </TableRow>
               ) : filtered.length === 0 ? (
-                <TableRow><TableCell colSpan={11} className="text-center py-10 text-muted-foreground">
-                  {view === "trash" ? "Recycle bin is empty." : "No assets yet. Click \"Add Asset\" to create your first record."}
-                </TableCell></TableRow>
-              ) : filtered.map((a) => {
-                const days = daysUntil(a.warranty_expiry);
-                return (
-                  <TableRow key={a.id} className="cursor-pointer" onClick={() => setLabelAsset(a)}>
-                    <TableCell className="font-mono text-xs">{a.asset_code}</TableCell>
-                    <TableCell className="font-medium">{a.asset_name}</TableCell>
-                    <TableCell>{a.category}</TableCell>
-                    <TableCell>{a.brand}</TableCell>
-                    <TableCell className="font-mono text-xs">{a.serial_number}</TableCell>
-                    <TableCell>{a.vendor}</TableCell>
-                    <TableCell>{a.department}</TableCell>
-                    <TableCell>{a.user_branch}</TableCell>
-                    <TableCell>
-                      {a.warranty_expiry ? (
-                        <span className={days !== null && days < 0 ? "text-destructive" : days !== null && days < 30 ? "text-amber-600" : ""}>
-                          {a.warranty_expiry} {days !== null && <span className="text-xs">({days}d)</span>}
-                        </span>
-                      ) : "—"}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={a.status === "Active" ? "default" : "secondary"}>{a.status}</Badge>
-                    </TableCell>
-                    <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                      <div className="flex justify-end gap-1">
-                        {view === "active" ? (
-                          <>
-                            <Button size="icon" variant="ghost" onClick={() => setLabelAsset(a)} title="QR & Barcode">
-                              <QrCode className="size-4" />
-                            </Button>
-                            <Button size="icon" variant="ghost" onClick={() => requireAuth(() => { setEditing(a); setFormOpen(true); })} title="Edit">
-                              <Pencil className="size-4" />
-                            </Button>
-                            <Button size="icon" variant="ghost" onClick={() => requireAuth(() => setDeleteAsset(a))} title="Move to recycle bin">
-                              <Trash2 className="size-4 text-destructive" />
-                            </Button>
-                          </>
-                        ) : (
-                          <>
-                            <Button size="icon" variant="ghost" onClick={() => requireAuth(() => restoreMut.mutate(a.id))} title="Restore">
-                              <RotateCcw className="size-4" />
-                            </Button>
-                            <Button size="icon" variant="ghost" onClick={() => requireAuth(() => setPurgeAsset(a))} title="Delete permanently">
-                              <Trash className="size-4 text-destructive" />
-                            </Button>
-                          </>
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
+                <TableRow>
+                  <TableCell colSpan={16} className="text-center py-10 text-muted-foreground">
+                    {view === "trash"
+                      ? "Recycle bin is empty."
+                      : 'No assets yet. Click "Add Asset" to create your first record.'}
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filtered.map((a) => {
+                  return (
+                    <TableRow
+                      key={a.id}
+                      className="cursor-pointer"
+                      onClick={() => setLabelAsset(a)}
+                    >
+                      <TableCell className="font-mono text-xs">{a.asset_code}</TableCell>
+                      <TableCell className="font-medium">{a.asset_name}</TableCell>
+                      <TableCell>{a.category || "—"}</TableCell>
+                      <TableCell>{a.brand || "—"}</TableCell>
+                      <TableCell>{a.model_number || "—"}</TableCell>
+                      <TableCell className="font-mono text-xs">{a.serial_number || "—"}</TableCell>
+                      <TableCell>{a.purchase_date || "—"}</TableCell>
+                      <TableCell>
+                        {a.purchase_price != null
+                          ? `KES ${a.purchase_price.toLocaleString()}`
+                          : "—"}
+                      </TableCell>
+                      <TableCell>{a.purchase_fund || "—"}</TableCell>
+                      <TableCell>{a.vendor || "—"}</TableCell>
+                      <TableCell>{a.department || "—"}</TableCell>
+                      <TableCell>{a.user_branch || "—"}</TableCell>
+                      <TableCell>
+                        {a.warranty_months ? `${a.warranty_months} months` : "—"}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={a.status === "Active" ? "default" : "secondary"}>
+                          {a.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="max-w-[220px] truncate">{a.remarks || "—"}</TableCell>
+                      <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex justify-end gap-1">
+                          {view === "active" ? (
+                            <>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                onClick={() => setLabelAsset(a)}
+                                title="QR & Barcode"
+                              >
+                                <QrCode className="size-4" />
+                              </Button>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                onClick={() =>
+                                  requireAuth(() => {
+                                    setEditing(a);
+                                    setFormOpen(true);
+                                  })
+                                }
+                                title="Edit"
+                              >
+                                <Pencil className="size-4" />
+                              </Button>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                onClick={() => requireAuth(() => setDeleteAsset(a))}
+                                title="Move to recycle bin"
+                              >
+                                <Trash2 className="size-4 text-destructive" />
+                              </Button>
+                            </>
+                          ) : (
+                            <>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                onClick={() => requireAuth(() => restoreMut.mutate(a.id))}
+                                title="Restore"
+                              >
+                                <RotateCcw className="size-4" />
+                              </Button>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                onClick={() => requireAuth(() => setPurgeAsset(a))}
+                                title="Delete permanently"
+                              >
+                                <Trash className="size-4 text-destructive" />
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
             </TableBody>
           </Table>
         </div>
       </main>
 
-      <Dialog open={formOpen} onOpenChange={(o) => { setFormOpen(o); if (!o) setEditing(null); }}>
+      <Dialog
+        open={formOpen}
+        onOpenChange={(o) => {
+          setFormOpen(o);
+          if (!o) setEditing(null);
+        }}
+      >
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editing ? "Edit Asset" : "Add New Asset"}</DialogTitle>
             <DialogDescription>
-              {editing ? `Editing ${editing.asset_code}` : "Asset code will be generated automatically."}
+              {editing
+                ? `Editing ${editing.asset_code}`
+                : "Asset code will be generated automatically."}
             </DialogDescription>
           </DialogHeader>
           <AssetForm
             asset={editing}
             submitting={upsertMut.isPending}
             onSubmit={(d) => upsertMut.mutate(d)}
-            onCancel={() => { setFormOpen(false); setEditing(null); }}
+            onCancel={() => {
+              setFormOpen(false);
+              setEditing(null);
+            }}
           />
         </DialogContent>
       </Dialog>
@@ -276,9 +430,7 @@ export function AssetsPage() {
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Asset Label — {labelAsset?.asset_code}</DialogTitle>
-            <DialogDescription>
-              {"\n"}
-            </DialogDescription>
+            <DialogDescription>{"\n"}</DialogDescription>
           </DialogHeader>
           {labelAsset && <LabelSheet asset={labelAsset} />}
         </DialogContent>
@@ -289,12 +441,15 @@ export function AssetsPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Move to recycle bin?</AlertDialogTitle>
             <AlertDialogDescription>
-              {deleteAsset?.asset_code} — {deleteAsset?.asset_name}. You can restore it later from the recycle bin.
+              {deleteAsset?.asset_code} — {deleteAsset?.asset_name}. You can restore it later from
+              the recycle bin.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => deleteAsset && deleteMut.mutate(deleteAsset.id)}>Delete</AlertDialogAction>
+            <AlertDialogAction onClick={() => deleteAsset && deleteMut.mutate(deleteAsset.id)}>
+              Delete
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -309,27 +464,44 @@ export function AssetsPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => purgeAsset && purgeMut.mutate(purgeAsset.id)}>Delete forever</AlertDialogAction>
+            <AlertDialogAction onClick={() => purgeAsset && purgeMut.mutate(purgeAsset.id)}>
+              Delete forever
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
-      <Dialog open={pwOpen} onOpenChange={(o) => { setPwOpen(o); if (!o) { setPendingAction(null); setPwInput(""); } }}>
+      <Dialog
+        open={pwOpen}
+        onOpenChange={(o) => {
+          setPwOpen(o);
+          if (!o) {
+            setPendingAction(null);
+            setPwInput("");
+          }
+        }}
+      >
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>Admin password required</DialogTitle>
-            <DialogDescription>Enter the admin password to edit or delete records.</DialogDescription>
+            <DialogDescription>
+              Enter the admin password to edit or delete records.
+            </DialogDescription>
           </DialogHeader>
           <Input
             type="password"
             autoFocus
             value={pwInput}
             onChange={(e) => setPwInput(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") submitPw(); }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") submitPw();
+            }}
             placeholder="Password"
           />
           <div className="flex justify-end gap-2">
-            <Button variant="ghost" onClick={() => setPwOpen(false)}>Cancel</Button>
+            <Button variant="ghost" onClick={() => setPwOpen(false)}>
+              Cancel
+            </Button>
             <Button onClick={submitPw}>Unlock</Button>
           </div>
         </DialogContent>
