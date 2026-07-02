@@ -1,16 +1,15 @@
 const fs = require('node:fs');
 const path = require('node:path');
-const { spawn } = require('node:child_process');
+const http = require('node:http');
 const { app, BrowserWindow, shell, ipcMain } = require('electron');
 
-const APP_NAME = 'Asset Manager';
-const FRONTEND_HOST = '127.0.0.1';
-const FRONTEND_PORT = 8080;
-const FRONTEND_URL = process.env.VITE_DEV_SERVER_URL || `http://${FRONTEND_HOST}:${FRONTEND_PORT}`;
+const APP_NAME = 'Asset Command';
+const BACKEND_PORT = 4000;
+const DEV_FRONTEND_URL = 'http://127.0.0.1:8080';
 
 let mainWindow;
-let backendProcess;
-let frontendProcess;
+
+// ─── Paths ────────────────────────────────────────────────────────────────────
 
 function getAppDataDir() {
   return app.getPath('userData');
@@ -20,137 +19,83 @@ function getDatabaseDir() {
   return path.join(getAppDataDir(), 'data');
 }
 
+/**
+ * In packaged apps the app root is the directory containing the ASAR archive.
+ * In development __dirname is .../electron/ so we go up one level.
+ */
+function getAppRoot() {
+  return path.resolve(__dirname, '..');
+}
+
+// ─── Backend (Express + SQLite) ───────────────────────────────────────────────
+
 function startBackend() {
-  if (backendProcess) {
+  const appRoot = getAppRoot();
+
+  // In packaged builds electron-builder copies server/dist into resources.
+  // In development we run server/dist directly from the project root.
+  const serverScript = path.join(appRoot, 'server', 'dist', 'index.js');
+
+  if (!fs.existsSync(serverScript)) {
+    console.error('[backend] Server script not found:', serverScript);
+    console.error('[backend] Run: npm run build:server');
     return;
   }
 
-  const appRoot = path.resolve(__dirname, '..');
-  const scriptPath = path.join(appRoot, 'server', 'dist', 'index.js');
-  const nodeExecutable = process.execPath;
+  console.log('[backend] Starting in main process:', serverScript);
 
-  console.log('[backend] Starting backend process');
-  console.log('[backend] Node executable:', nodeExecutable);
-  console.log('[backend] Backend script:', scriptPath);
-  console.log('[backend] Working directory:', appRoot);
+  process.env.NODE_ENV = app.isPackaged ? 'production' : 'development';
+  process.env.PORT = String(BACKEND_PORT);
+  process.env.ASSET_MANAGER_DATA_DIR = getDatabaseDir();
+  
+  // Let the migration runner find SQL files from extraResources in packaged builds
+  process.env.ASSET_MANAGER_RESOURCES_DIR = app.isPackaged
+    ? path.join(process.resourcesPath, 'server-resources')
+    : path.join(appRoot, 'server');
 
-  backendProcess = spawn(nodeExecutable, [scriptPath], {
-    cwd: appRoot,
-    env: {
-      ...process.env,
-      ASSET_MANAGER_DATA_DIR: getDatabaseDir(),
-      PORT: process.env.PORT || '4000',
-    },
-    stdio: ['ignore', 'pipe', 'pipe'],
-  });
-
-  backendProcess.stdout.on('data', (data) => {
-    process.stdout.write(`[backend] ${data}`);
-  });
-
-  backendProcess.stderr.on('data', (data) => {
-    process.stderr.write(`[backend] ${data}`);
-  });
-
-  backendProcess.on('error', (error) => {
-    console.error('[backend] spawn error:', error);
-  });
-
-  backendProcess.on('exit', (code) => {
-    if (code !== 0) {
-      console.error(`[backend] exited with code ${code}`);
-    }
-    backendProcess = null;
+  // Server is ESM, so we use dynamic import() to load it from this CJS file
+  import('file://' + serverScript.replace(/\\/g, '/')).catch(err => {
+    console.error('[backend] Failed to load server:', err);
   });
 }
 
 function stopBackend() {
-  if (!backendProcess) {
-    return;
-  }
-
-  backendProcess.kill('SIGTERM');
-  backendProcess = null;
+  // The backend runs in the main process, so it will exit when the app quits.
 }
 
-function stopFrontend() {
-  if (!frontendProcess) {
-    return;
-  }
+// ─── Wait for backend to be ready ────────────────────────────────────────────
 
-  frontendProcess.kill('SIGTERM');
-  frontendProcess = null;
-}
+/**
+ * Poll an HTTP URL until it responds (or timeout).
+ */
+function waitForHttp(url, timeoutMs = 20000) {
+  return new Promise((resolve, reject) => {
+    const start = Date.now();
 
-function startFrontend() {
-  if (frontendProcess) {
-    return;
-  }
-
-  const appRoot = path.resolve(__dirname, '..');
-  const nodeExecutable = process.execPath;
-  const isDev = !app.isPackaged;
-
-  if (isDev) {
-    // Development startup: Electron starts the Vite dev server automatically.
-    const viteEntry = path.join(appRoot, 'node_modules', 'vite', 'bin', 'vite.js');
-    console.log('[frontend] Development mode: starting Vite dev server');
-    console.log('[frontend] Vite entry:', viteEntry);
-    console.log('[frontend] Frontend URL:', FRONTEND_URL);
-
-    frontendProcess = spawn(nodeExecutable, [viteEntry, 'dev', '--host', FRONTEND_HOST, '--port', String(FRONTEND_PORT), '--strictPort'], {
-      cwd: appRoot,
-      env: {
-        ...process.env,
-        NODE_ENV: 'development',
-      },
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
-  } else {
-    // Production startup: Electron loads the built frontend from the packaged app without needing Vite.
-    const builtFrontendEntry = path.join(appRoot, '.output', 'server', 'index.mjs');
-    console.log('[frontend] Production mode: starting built frontend server');
-    console.log('[frontend] Built frontend entry:', builtFrontendEntry);
-    console.log('[frontend] Frontend URL:', FRONTEND_URL);
-
-    if (!fs.existsSync(builtFrontendEntry)) {
-      console.error('[frontend] Built frontend entry not found:', builtFrontendEntry);
-      return;
+    function attempt() {
+      const req = http.get(url, (res) => {
+        resolve();
+        res.resume();
+      });
+      req.on('error', () => retry());
+      req.setTimeout(500, () => { req.destroy(); retry(); });
     }
 
-    frontendProcess = spawn(nodeExecutable, [builtFrontendEntry], {
-      cwd: appRoot,
-      env: {
-        ...process.env,
-        NODE_ENV: 'production',
-        HOST: FRONTEND_HOST,
-        PORT: String(FRONTEND_PORT),
-      },
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
-  }
-
-  frontendProcess.stdout.on('data', (data) => {
-    process.stdout.write(`[frontend] ${data}`);
-  });
-
-  frontendProcess.stderr.on('data', (data) => {
-    process.stderr.write(`[frontend] ${data}`);
-  });
-
-  frontendProcess.on('error', (error) => {
-    console.error('[frontend] spawn error:', error);
-  });
-
-  frontendProcess.on('exit', (code) => {
-    if (code !== 0) {
-      console.error(`[frontend] exited with code ${code}`);
+    function retry() {
+      if (Date.now() - start >= timeoutMs) {
+        reject(new Error(`Timed out waiting for ${url}`));
+        return;
+      }
+      setTimeout(attempt, 300);
     }
-    frontendProcess = null;
+
+    attempt();
   });
 }
 
-function createWindow() {
+// ─── Window ───────────────────────────────────────────────────────────────────
+
+async function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
@@ -166,12 +111,33 @@ function createWindow() {
     },
   });
 
-  startFrontend();
-  setTimeout(() => {
-    if (!mainWindow?.isDestroyed()) {
-      mainWindow.loadURL(FRONTEND_URL);
+  if (app.isPackaged) {
+    // Production: wait for Express backend, then load static SPA.
+    try {
+      await waitForHttp(`http://127.0.0.1:${BACKEND_PORT}/api/health`);
+      console.log('[electron] Backend is ready');
+    } catch (err) {
+      console.error('[electron] Backend readiness timeout:', err.message);
     }
-  }, 1000);
+    const indexPath = path.join(getAppRoot(), 'dist', 'index.html');
+    console.log('[electron] Loading (production):', indexPath);
+    mainWindow.loadFile(indexPath);
+  } else {
+    // Development: wait for BOTH the Express backend (system Node) and the
+    // Vite dev server before loading — either can start in any order.
+    try {
+      await Promise.all([
+        waitForHttp(`http://127.0.0.1:${BACKEND_PORT}/api/health`),
+        waitForHttp(DEV_FRONTEND_URL),
+      ]);
+      console.log('[electron] Backend + Vite dev server are ready');
+    } catch (err) {
+      console.error('[electron] Dev readiness timeout:', err.message);
+    }
+    console.log('[electron] Loading (development):', DEV_FRONTEND_URL);
+    mainWindow.loadURL(DEV_FRONTEND_URL);
+    mainWindow.webContents.openDevTools();
+  }
 
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
@@ -183,24 +149,38 @@ function createWindow() {
   });
 }
 
+// ─── IPC ─────────────────────────────────────────────────────────────────────
+
 ipcMain.handle('get-app-version', () => app.getVersion());
-ipcMain.handle('get-app-data-path', () => app.getPath('userData'));
+ipcMain.handle('get-app-data-path', () => getAppDataDir());
 
-app.on('ready', () => {
+// ─── App lifecycle ────────────────────────────────────────────────────────────
+
+app.on('ready', async () => {
   app.setName(APP_NAME);
-  startBackend();
-  createWindow();
 
-  app.on('activate', () => {
+  if (app.isPackaged) {
+    // Production: Electron spawns the backend using its own embedded Node.
+    // better-sqlite3 is rebuilt for Electron's ABI during `npm run build:electron`.
+    startBackend();
+  } else {
+    // Development: backend is started separately with system Node via
+    // `npm run dev:server` (or `npm run dev:electron` which includes it).
+    // This avoids the Node ABI mismatch between system Node and Electron's Node.
+    console.log('[electron] Dev mode: expecting backend already running on port', BACKEND_PORT);
+  }
+
+  await createWindow();
+
+  app.on('activate', async () => {
     if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow();
+      await createWindow();
     }
   });
 });
 
 app.on('window-all-closed', () => {
   stopBackend();
-  stopFrontend();
   if (process.platform !== 'darwin') {
     app.quit();
   }
@@ -208,17 +188,14 @@ app.on('window-all-closed', () => {
 
 app.on('before-quit', () => {
   stopBackend();
-  stopFrontend();
 });
 
 process.on('SIGINT', () => {
   stopBackend();
-  stopFrontend();
   app.quit();
 });
 
 process.on('SIGTERM', () => {
   stopBackend();
-  stopFrontend();
   app.quit();
 });

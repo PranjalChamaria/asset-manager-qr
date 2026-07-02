@@ -7,13 +7,6 @@ import type { Asset } from "@/lib/asset-types";
 import { assetDatabase } from "@/lib/database";
 
 export const Route = createFileRoute("/asset/$code")({
-  ssr: false,
-  head: ({ params }) => ({
-    meta: [
-      { title: `Asset ${params.code}` },
-      { name: "description", content: `Asset details for ${params.code}` },
-    ],
-  }),
   component: AssetDetail,
 });
 

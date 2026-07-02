@@ -30,3 +30,23 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Electron build outputs — binaries are too large for git
+release/
+
+# Server compiled output (generated from TypeScript source)
+server/dist/
+
+# Local SQLite database (user data, not source code)
+server/database/
+
+# App icon generated file (regenerated from make-ico.mjs)
+build/icon.ico
+build/icon.png
+
+# Debug/temp scripts created during development
+scripts/test-utility.cjs
+
+# Temp log files from packaged app testing
+stdout*.log
+stderr*.log
