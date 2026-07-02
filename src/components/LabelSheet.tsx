@@ -33,9 +33,6 @@ function Label({ asset, text }: { asset: Asset; text: string }) {
       <canvas ref={qrRef} className="shrink-0 h-full w-auto" />
       <div className="flex-1 min-w-0 flex flex-col justify-between border-l border-black pl-1">
         <div className="space-y-0.5">
-          <div className="font-bold text-[8px] truncate leading-tight">
-            {asset.company || "Asset"}
-          </div>
           <div className="font-bold text-[9px] truncate leading-tight">{asset.asset_name}</div>
           <div className="text-[7px] font-semibold text-gray-700 tracking-wide break-words leading-tight">
             AST ID: {asset.asset_code}
@@ -54,7 +51,6 @@ export function LabelSheet({ asset }: { asset: Asset }) {
   const lines = [
     `Asset Code: ${asset.asset_code}`,
     `Name: ${asset.asset_name}`,
-    `Company: ${asset.company || ""}`,
     `Category: ${asset.category || ""}`,
     `Brand: ${asset.brand || ""}`,
     `Serial: ${asset.serial_number || ""}`,
@@ -103,8 +99,6 @@ export function LabelSheet({ asset }: { asset: Asset }) {
     context.drawImage(barcodeCanvas, 240, 300, 300, 74);
 
     context.fillStyle = "#000000";
-    context.font = "bold 24px Arial";
-    context.fillText(asset.company || "Asset", 252, 60);
     context.font = "bold 30px Arial";
     context.fillText(asset.asset_name, 252, 110);
     context.font = "bold 24px Arial";

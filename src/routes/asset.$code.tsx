@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Package } from "lucide-react";
 import type { Asset } from "@/lib/asset-types";
-import { daysUntil } from "@/lib/asset-types";
 import { assetDatabase } from "@/lib/database";
 
 export const Route = createFileRoute("/asset/$code")({
@@ -61,8 +60,6 @@ function AssetDetail() {
       </div>
     );
 
-  const days = daysUntil(data.warranty_expiry);
-
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b bg-card">
@@ -89,7 +86,6 @@ function AssetDetail() {
           <h2 className="font-semibold mb-2 text-sm uppercase tracking-wider text-muted-foreground">
             Asset Details
           </h2>
-          <Row label="Company" value={data.company} />
           <Row label="Asset Code" value={<span className="font-mono">{data.asset_code}</span>} />
           <Row label="Asset Name" value={data.asset_name} />
           <Row label="Category" value={data.category} />
@@ -111,17 +107,6 @@ function AssetDetail() {
           <Row
             label="Warranty Period"
             value={data.warranty_months ? `${data.warranty_months} months` : null}
-          />
-          <Row label="Warranty Expiry" value={data.warranty_expiry} />
-          <Row
-            label="Remaining Days"
-            value={
-              days !== null ? (
-                <span className={days < 0 ? "text-destructive" : days < 30 ? "text-amber-600" : ""}>
-                  {days < 0 ? `Expired ${-days} days ago` : `${days} days`}
-                </span>
-              ) : null
-            }
           />
           <Row label="Status" value={data.status} />
           <Row label="Remarks" value={data.remarks} />
