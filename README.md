@@ -1,64 +1,102 @@
 # Asset Command
 
+A desktop app for managing physical assets across departments and branches. Runs completely offline. Data stays on your machine.
 
-## 🚀 Overview
+---
 
-**Asset Command** is a self-contained, enterprise-grade desktop application designed for secure, offline asset management. Built for environments with strict data privacy requirements or unreliable internet access, all data remains strictly local to your machine. 
+## What it does
 
-It features a modern, responsive UI built with React and Tailwind CSS, powered by an embedded local SQLite database and served via an Electron shell.
+- Add and manage assets with details like category, brand, serial number, vendor, department, branch, purchase info, and warranty dates
+- Auto-generates a unique code for each asset on creation
+- Generates a QR code and CODE128 barcode for every asset, printable as a 4×1.5 inch label
+- Search across code, name, brand, serial number, vendor, department, and branch in real time
+- Warranty countdown with colour warnings: amber at 30 days left, red when expired
+- Soft delete with a recycle bin. Deleted assets can be restored or permanently removed
+- Password prompt on edit, delete, and purge to prevent accidental changes
 
-## ✨ Features
+---
 
-- **🔒 100% Offline & Private:** Zero cloud telemetry, zero remote database calls. Your data lives on your hard drive in a local SQLite database (`assets.db`).
-- **⚡ Blazing Fast:** With an embedded `better-sqlite3` database running in the same process as the app, queries resolve in microseconds. 
-- **🖥️ Desktop Native:** Bundled as a standalone Windows executable (`.exe`). No server setup, no dependencies to install. Just double click and run.
-- **🎨 Modern UI:** Sleek, responsive interface built with React, Vite, Tailwind CSS, and shadcn/ui.
-- **📊 Comprehensive Asset Tracking:** Track asset codes, models, purchase dates, warranty info, vendor details, and physical locations.
-- **🔄 Auto-Sequencing:** Automatically generates sequential, unique asset codes (e.g. `AST-0001`).
+## Tech stack
 
-## 🏗️ Architecture
+| | |
+|---|---|
+| UI | React 19, Tailwind CSS v4, shadcn/ui |
+| Routing | TanStack Router |
+| Data fetching | TanStack Query v5 |
+| Forms | React Hook Form + Zod |
+| QR codes | `qrcode` |
+| Barcodes | `jsbarcode` (CODE128) |
+| Build tool | Vite 8 |
+| Language | TypeScript 5 |
+| Backend | Express.js |
+| Database | SQLite via `better-sqlite3` |
+| Desktop | Electron v31 |
+| Installer | Electron Builder (Windows NSIS) |
 
-Asset Command represents a complex migration from a cloud-first SSR framework to a robust local desktop architecture.
+---
 
-* **Frontend:** React 18, Vite, TanStack Router, Tailwind CSS, shadcn/ui
-* **Backend:** Express.js running directly inside the Electron Main Process
-* **Database:** SQLite3 (`better-sqlite3`) embedded locally
-* **Packaging:** Electron Builder (compiling NSIS Windows Installers)
+## Getting started (development)
 
-### Why this architecture?
-By migrating away from a cloud-bound framework (like Next.js or Nitro) to an **Electron + Express + SQLite** stack, the application achieves true offline autonomy. 
-1. **No ASAR Path Issues:** The Express server is booted via dynamic `import()` within the Electron main process, completely bypassing filesystem extraction bugs common in packaged Electron apps.
-2. **Native SQLite Performance:** Native Node.js addons (`better-sqlite3`) are explicitly rebuilt (`electron-rebuild`) for the precise Electron ABI version, ensuring rock-solid stability and zero crashes on Windows.
+You need Node.js 18+ installed.
 
-## 🛠️ Development Setup
-
-If you want to contribute or build the application from source, you'll need Node.js (v18 or higher) installed.
-
-### 1. Install Dependencies
 ```bash
 npm install
+npm run build:server   # compile the backend once
+npm run dev:electron   # start everything
 ```
 
-### 2. Development Mode
-Start both the Vite frontend server and the Express backend server concurrently within an Electron wrapper:
-```bash
-npm run dev:electron
-```
+This opens the Electron window with the Vite dev server and Express backend running together.
 
-### 3. Build for Production (Windows Installer)
-To compile a standalone `.exe` installer for distribution:
+---
+
+## Building the installer
+
+Close the app if it's open, then run:
+
 ```bash
 npm run build:electron
 ```
-*This command automatically compiles the frontend, builds the backend, aligns the native SQLite binaries with Electron's ABI, and packages the final `.exe` installer into the `release/` directory.*
 
-## 📂 Data Storage
+The finished installer will be at `release/Asset Command-Setup-1.0.0.exe`. Installs on any Windows machine with no admin rights needed.
 
-Your database is stored in the standard Windows AppData directory, ensuring it persists across application updates:
-* `C:\Users\<YourUsername>\AppData\Roaming\asset-command\data\assets.db`
+---
 
-> **Note:** To back up your data, simply copy the `assets.db` file to a secure location.
+## Scripts
 
-## 📄 License
+| Command | Description |
+|---|---|
+| `npm run dev:electron` | Run in development mode (full app) |
+| `npm run build:electron` | Build the Windows installer |
+| `npm run build:server` | Compile the backend TypeScript |
+| `npm run lint` | Run ESLint |
+| `npm run format` | Run Prettier |
 
-This project is licensed under the MIT License.
+---
+
+## Data storage
+
+The database is a single SQLite file stored at:
+
+```
+C:\Users\<YourUsername>\AppData\Roaming\asset-command\data\assets.db
+```
+
+To back up your data, copy that file. To restore, replace it. The database sets itself up automatically on first launch.
+
+---
+
+## Admin password
+
+Edit, delete, and purge operations require a password. The default is `admin123`. To change it, update the password check in `src/components/AssetsPage.tsx`.
+
+---
+
+## Printing labels
+
+Click any asset row to open its label. Each label has a QR code, asset name, asset code, and a barcode. Hit **Print label** to print it (the page is sized to exactly 4×1.5 inches with no margin), or **Download label** to save it as a JPEG.
+
+---
+
+## License
+
+MIT
